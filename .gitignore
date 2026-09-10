@@ -1,0 +1,28 @@
+
+
+# Build outputs
+dist-electron/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+.env.local
+
+# Temporary files
+*.tmp
+*.temp
+*~

@@ -1,0 +1,22 @@
+"use strict";
+Object.defineProperty(exports,Symbol.toStringTag,{value:"Module"});
+var e=require("./@vue.d56d68ba.js"),i=require("electron"),F=require("./clipboard.7fc21323.js"),v=require("./plugin-vue_export-helper.d4c26e4c.js"),c=require("./element-plus.82ea9b6e.js");
+require("./lodash-es.ddea9911.js");
+require("./@vueuse.890cd802.js");
+require("./@element-plus.fa9c9259.js");
+require("./@popperjs.fbdb10e6.js");
+require("./@ctrl.1468e79e.js");
+require("./dayjs.512f3e6f.js");
+require("./async-validator.a2deba43.js");
+require("./memoize-one.846331f4.js");
+require("./escape-html.10f0acfa.js");
+require("./normalize-wheel-es.fee9c64f.js");
+require("./@floating-ui.8e3ffa7f.js");
+const l=t=>(e.pushScopeId("data-v-355274d0"),t=t(),e.popScopeId(),t),B={class:"content"},f=l(()=>e.createBaseVNode("div",{class:"title"},"\u8BF7\u95EE\u662F\u4EC0\u4E48\u539F\u56E0\u8BA9\u60A8\u5FEB\u901F\u9000\u51FA\u5E7D\u7075\u770B\u76D8\uFF1F",-1)),E=l(()=>e.createBaseVNode("div",{class:"sub"},"\u611F\u8C22\u60A8\u8BA4\u771F\u7684\u53CD\u9988\uFF0C\u8FD9\u6837\u4F1A\u8BA9\u5E7D\u7075\u770B\u76D8\u53D8\u5F97\u66F4\u597D\u3002",-1)),_=l(()=>e.createBaseVNode("div",{class:"tip"},"\u5982\u679C\u9047\u5230\u7279\u6B8A\u95EE\u9898\uFF0C\u53EF\u8054\u7CFB\u5E7D\u7075\u770B\u76D8\u5BA2\u670D",-1)),C=e.createTextVNode("\u5BA2\u670DQQ:591000542 "),D=e.defineComponent({__name:"advice",setup(t){const a=e.ref(""),r=e.ref("");
+function n(){i.ipcRenderer.send("statistic","Advice.CopyQQ.CK",null);
+var u=new F.Clipboard(".cs",{text:function(){return"591000542"}});
+u.on("success",s=>{console.log("cp ok."),c.ElMessage({message:"\u590D\u5236\u5BA2\u670DQQ\u6210\u529F",type:"success",offset:0,duration:600}),u.destroy()}),u.on("error",s=>{console.log("cp fail."),u.destroy()})}async function d(){if(i.ipcRenderer.send("statistic","Advice.Submit.CK",null),a.value!=""){let u=a.value;
+r.value!=""&&(u=u+"|"+r.value),(await i.ipcRenderer.invoke("api","send_advice",u)).code==200?c.ElMessage({message:"\u63D0\u4EA4\u6210\u529F",type:"success",offset:0,duration:600}):c.ElMessage({message:"\u63D0\u4EA4\u5931\u8D25\uFF0C\u8BF7\u8054\u7CFB\u5BA2\u670D",type:"warning",offset:0,duration:600})}}function p(){i.ipcRenderer.invoke("api","exit")}return(u,s)=>(e.openBlock(),e.createElementBlock("div",B,[f,E,e.withDirectives(e.createBaseVNode("input",{class:"ip",placeholder:"\u8BF7\u8F93\u5165\u4F60\u7684\u53CD\u9988\uFF0C\u6BCF\u4E00\u6761\u53CD\u9988\u6211\u4EEC\u90FD\u4F1A\u8BA4\u771F\u9605\u8BFB\u5E76\u5904\u7406",type:"text","onUpdate:modelValue":s[0]||(s[0]=o=>a.value=o)},null,512),[[e.vModelText,a.value]]),e.withDirectives(e.createBaseVNode("input",{class:"ip",placeholder:"\u60A8\u7684QQ\u53F7\u6216\u5FAE\u4FE1\u53F7\uFF0C\u6211\u4EEC\u4F1A\u8054\u7CFB\u60A8\u89E3\u51B3\u95EE\u9898\u5E76\u7ED9\u4E0E\u5956\u52B1",type:"text","onUpdate:modelValue":s[1]||(s[1]=o=>r.value=o)},null,512),[[e.vModelText,r.value]]),e.createBaseVNode("button",{class:"submit",onClick:d},"\u63D0\u4EA4\u53CD\u9988"),_,e.createBaseVNode("div",{class:"cs"},[C,e.createBaseVNode("a",{class:"cs",onClick:n},"\u70B9\u51FB\u590D\u5236")]),e.createBaseVNode("a",{class:"exit",onClick:p},"\u6B8B\u5FCD\u79BB\u5F00")]))}});
+var A=v._export_sfc(D,[["__scopeId","data-v-355274d0"]]);
+exports.default=A;
+

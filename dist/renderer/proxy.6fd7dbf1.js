@@ -1,0 +1,25 @@
+"use strict";
+Object.defineProperty(exports,Symbol.toStringTag,{value:"Module"});
+var f=require("./element-plus.82ea9b6e.js"),e=require("./@vue.d56d68ba.js"),l=require("electron"),_=require("./plugin-vue_export-helper.d4c26e4c.js");
+require("./lodash-es.ddea9911.js");
+require("./@vueuse.890cd802.js");
+require("./@element-plus.fa9c9259.js");
+require("./@popperjs.fbdb10e6.js");
+require("./@ctrl.1468e79e.js");
+require("./dayjs.512f3e6f.js");
+require("./clipboard.7fc21323.js");
+require("./async-validator.a2deba43.js");
+require("./memoize-one.846331f4.js");
+require("./escape-html.10f0acfa.js");
+require("./normalize-wheel-es.fee9c64f.js");
+require("./@floating-ui.8e3ffa7f.js");
+const c=n=>(e.pushScopeId("data-v-e4256158"),n=n(),e.popScopeId(),n),V={id:"content"},w={class:"group"},B=c(()=>e.createBaseVNode("span",null,"\u4EE3\u7406\u8BBE\u7F6E",-1)),g=c(()=>e.createBaseVNode("span",null,"\u4EE3\u7406\u5F00\u5173",-1)),N={key:0},j={class:"auth"},S=c(()=>e.createBaseVNode("span",{style:{color:"#222222","font-size":"14px"}},"\u8D26\u53F7\u5BC6\u7801",-1)),q={key:0},E=e.defineComponent({__name:"proxy",setup(n){l.ipcRenderer.invoke("config","get").then(o=>{let t=o.proxySwitch;
+i.value=t!=!1,a.value=t.proxyHost,u.value=t.proxyPort,t.proxyUserName?(s.value=!0,p.value=t.proxyUserName,d.value=t.proxyPassWord):s.value=!1});
+const i=e.ref(!1),s=e.ref(!1),a=e.ref(""),u=e.ref(0),p=e.ref(null),d=e.ref(null);
+async function y(o){o==!1&&(await l.ipcRenderer.invoke("config","set_reload",{proxySwitch:o}),l.ipcRenderer.send("statistic","ProxySwitch",{pt:o}))}async function x(o){o==!1&&await l.ipcRenderer.invoke("config","set_reload",{proxySwitch:{proxyHost:a.value,proxyPort:u.value,proxyUserName:null,proxyPassWord:null}}),l.ipcRenderer.send("statistic","proxyAuthSwitch",{pt:o})}function m(o){o!=null&&f.ElMessage({message:o,type:"error",offset:0,duration:1e3})}async function h(){let o=a.value;
+if(o==null||o.trim()==""){m("\u5730\u5740\u4E0D\u80FD\u4E3A\u7A7A");
+return}await l.ipcRenderer.invoke("config","set_reload",{proxySwitch:{proxyHost:a.value,proxyPort:u.value,proxyUserName:p.value,proxyPassWord:d.value}}),l.ipcRenderer.send("statistic","ProxySave")}return(o,t)=>{const v=f.ElSwitch;
+return e.openBlock(),e.createElementBlock("div",V,[e.createBaseVNode("div",w,[B,e.createBaseVNode("div",null,[g,e.createVNode(v,{style:{"margin-left":"0px"},modelValue:i.value,"onUpdate:modelValue":t[0]||(t[0]=r=>i.value=r),onChange:y},null,8,["modelValue"]),i.value?(e.openBlock(),e.createElementBlock("div",N,[e.withDirectives(e.createBaseVNode("input",{class:"ip",placeholder:"\u5730\u5740",type:"text","onUpdate:modelValue":t[1]||(t[1]=r=>a.value=r)},null,512),[[e.vModelText,a.value]]),e.withDirectives(e.createBaseVNode("input",{class:"ip",placeholder:"\u7AEF\u53E3",type:"number","onUpdate:modelValue":t[2]||(t[2]=r=>u.value=r)},null,512),[[e.vModelText,u.value]]),e.createBaseVNode("div",j,[S,e.createVNode(v,{style:{"margin-left":"15px"},modelValue:s.value,"onUpdate:modelValue":t[3]||(t[3]=r=>s.value=r),onChange:x},null,8,["modelValue"]),s.value?(e.openBlock(),e.createElementBlock("div",q,[e.withDirectives(e.createBaseVNode("input",{class:"ip",placeholder:"\u7528\u6237\u540D",type:"text","onUpdate:modelValue":t[4]||(t[4]=r=>p.value=r)},null,512),[[e.vModelText,p.value]]),e.withDirectives(e.createBaseVNode("input",{class:"ip",placeholder:"\u5BC6\u7801",type:"text","onUpdate:modelValue":t[5]||(t[5]=r=>d.value=r)},null,512),[[e.vModelText,d.value]])])):e.createCommentVNode("",!0)]),e.createBaseVNode("button",{class:"submit",onClick:h},"\u4FDD\u5B58")])):e.createCommentVNode("",!0)])])])}}});
+var k=_._export_sfc(E,[["__scopeId","data-v-e4256158"]]);
+exports.default=k;
+

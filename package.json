@@ -1,0 +1,87 @@
+{
+  "name": "stock-monitor",
+  "version": "1.0.0",
+  "main": "dist/main/index.cjs",
+  "author": "codeffect",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.17.0"
+  },
+  "env": {
+    "VITE_DEV_SERVER_HOST": "127.0.0.1",
+    "VITE_DEV_SERVER_PORT": 3344
+  },
+  "scripts": {
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.stockmonitor.app",
+    "productName": "Stock-monitor",
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/renderer/logo.png",
+        "to": "logo.png"
+      }
+    ],
+    "win": {
+      "icon": "icons/win/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "icon": "icons/mac/icon.icns",
+      "target": [
+        "dmg"
+      ]
+    }
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^1.1.4",
+    "@types/mousetrap": "^1.6.9",
+    "axios": "^0.27.2",
+    "clipboard": "^2.0.11",
+    "echarts": "5.3.3",
+    "electron-dl": "^3.3.1",
+    "electron-json-storage": "^4.5.0",
+    "electron-log": "^4.4.7",
+    "electron-store": "^8.0.1",
+    "element-plus": "2.1.11",
+    "element-resize-detector": "^1.2.4",
+    "https-proxy-agent": "^5.0.1",
+    "iconv-lite": "^0.6.3",
+    "jszip": "3.9.1",
+    "moment": "2.29.3",
+    "mousetrap": "^1.6.5",
+    "node-machine-id": "1.1.12",
+    "normalize.css": "^8.0.1",
+    "qrcode.vue": "^3.3.3",
+    "vue": "^3.2.31",
+    "vue-router": "^4.0.15"
+  },
+  "devDependencies": {
+    "electron": "^40.1.0",
+    "electron-builder": "^24.13.3"
+  }
+}
