@@ -13,24 +13,33 @@ require("./memoize-one.846331f4.js");
 require("./escape-html.10f0acfa.js");
 require("./normalize-wheel-es.fee9c64f.js");
 require("./@floating-ui.8e3ffa7f.js");
-const P=p=>(e.pushScopeId("data-v-02cdbccd"),p=p(),e.popScopeId(),p),L={id:"content"},z={style:{"font-size":"12px"}},G=P(()=>e.createBaseVNode("div",{style:{width:"100%",height:"2px",background:"green"}},null,-1)),M={style:{color:"green"}},K=e.createTextVNode(" -- \u5931\u8D25 "),O={style:{color:"red"}},H=e.defineComponent({__name:"doctor",setup(p){const k=e.ref("\u5F00\u59CB\u8BCA\u65AD"),h=e.ref([]),c=e.ref(),v=[],D={};
-var C=!1;
-const f=e.ref("\u4E0A\u4F20\u65E5\u5FD7"),F=e.ref(),E=[];
-var d=null;
-const B=e.ref("");
-async function _(){let u=await n.ipcRenderer.invoke("api","configPath");
-B.value=u}_();
-async function A(){f.value=="\u4E0A\u4F20\u65E5\u5FD7"&&(f.value="\u4E0A\u4F20\u4E2D...",await n.ipcRenderer.invoke("api","uploadLogs"),f.value="\u4E0A\u4F20\u65E5\u5FD7")}async function s(u,i){let a=[];
-D[u]=a;
-for(let l=0;
-l<10;
-l++)try{if(await i()==!0){a.push(!0);
-return}else a.push(!1)}catch(r){await n.ipcRenderer.invoke("api","log",r+""),a.push(!1)}}async function m(){return(await n.ipcRenderer.invoke("api","goods")).length>0?(t("\u5E94\u7528\u670D\u52A1\u5668\u8BF7\u6C42\u6210\u529F."),!0):(t("\u5E94\u7528\u670D\u52A1\u5668\u8BF7\u6C42\u5931\u8D25."),!1)}async function b(){return(await n.ipcRenderer.invoke("api","searchStock","000001")).data.length>0?(t("\u641C\u7D22\u670D\u52A1\u56681\u8BF7\u6C42\u6210\u529F."),!0):(t("\u641C\u7D22\u670D\u52A1\u56681\u8BF7\u6C42\u5931\u8D25."),!1)}async function S(){return(await n.ipcRenderer.invoke("api","searchStock","11364")).data.length>3?(t("\u641C\u7D22\u670D\u52A1\u56682\u8BF7\u6C42\u6210\u529F."),!0):(t("\u641C\u7D22\u670D\u52A1\u56682\u8BF7\u6C42\u5931\u8D25."),!1)}async function w(){return(await n.ipcRenderer.invoke("api","checkTstock")).sh000001?(t("\u6570\u636E\u670D\u52A1\u56681\u8BF7\u6C42\u6210\u529F."),!0):(t("\u6570\u636E\u670D\u52A1\u56681\u8BF7\u6C42\u5931\u8D25."),!1)}async function j(){return(await n.ipcRenderer.invoke("api","checkSstock")).nf_BC0?(t("\u6570\u636E\u670D\u52A1\u56682\u8BF7\u6C42\u6210\u529F."),!0):(t("\u6570\u636E\u670D\u52A1\u56682\u8BF7\u6C42\u5931\u8D25."),!1)}async function o(u){u!=null&&E.push(u),d==null&&(E.length>0?(d=E.shift(),await d(),d=null,setTimeout(()=>{o(null)},500)):d=null)}async function x(){C||(v.length=0,E.length=0,h.value=[],c.value=[],k.value="\u8BCA\u65AD\u4E2D",C=!0,o(async()=>{t("\u68C0\u67E5\u5E94\u7528\u670D\u52A1\u5668..."),await s("\u68C0\u67E5\u5E94\u7528\u670D\u52A1\u5668",m)}),o(async()=>{t("\u68C0\u67E5\u641C\u7D22\u670D\u52A1\u56681..."),await s("\u68C0\u67E5\u641C\u7D22\u670D\u52A1\u56681",b)}),o(async()=>{t("\u68C0\u67E5\u641C\u7D22\u670D\u52A1\u56682..."),await s("\u68C0\u67E5\u641C\u7D22\u670D\u52A1\u56682",S)}),o(async()=>{t("\u68C0\u67E5\u6570\u636E\u670D\u52A1\u56681..."),await s("\u68C0\u67E5\u6570\u636E\u670D\u52A1\u56681",w)}),o(async()=>{t("\u68C0\u67E5\u6570\u636E\u670D\u52A1\u56682..."),await s("\u68C0\u67E5\u6570\u636E\u670D\u52A1\u56682",j)}),o(async()=>{R(),C=!1,k.value="\u5F00\u59CB\u8BCA\u65AD"}))}function t(u){v.push({data:u}),h.value=v,F.value=Math.random()}function R(){let u=[];
-for(let i in D){let a={},l=D[i],r=0,y=0;
-for(let N in l)l[N]==!0?r++:y++;
-a.key=i,a.ok=r,a.notok=y,u.push(a)}c.value=u}async function T(){await n.ipcRenderer.invoke("api","openLogDir")}async function V(){let u=await n.ipcRenderer.invoke("api","isAeroGlassEnabled");
-t("isAeroGlassEnabled : "+u)}return(u,i)=>{const a=g.ElTableColumn,l=g.ElTable;
-return e.openBlock(),e.createElementBlock("div",L,[e.createBaseVNode("div",null,[e.createBaseVNode("div",z,"\u914D\u7F6E\u6587\u4EF6\u8DEF\u5F84\uFF1A"+e.toDisplayString(B.value),1),(e.openBlock(),e.createBlock(l,{key:F.value,data:h.value,style:{width:"100%"},"max-height":"250"},{default:e.withCtx(()=>[e.createVNode(a,{prop:"data",label:"\u68C0\u67E5\u65E5\u5FD7"})]),_:1},8,["data"])),G,(e.openBlock(!0),e.createElementBlock(e.Fragment,null,e.renderList(c.value,r=>(e.openBlock(),e.createElementBlock("p",null,[e.createTextVNode(e.toDisplayString(r.key)+" -- \u6210\u529F ",1),e.createBaseVNode("span",M,e.toDisplayString(r.ok),1),K,e.createBaseVNode("span",O,e.toDisplayString(r.notok),1)]))),256))]),e.createBaseVNode("button",{onClick:x,style:{"margin-top":"10px"}},e.toDisplayString(k.value),1),c.value&&c.value.length>0?(e.openBlock(),e.createElementBlock("button",{key:0,onClick:A,class:"uploadlogs"},e.toDisplayString(f.value),1)):e.createCommentVNode("",!0),c.value&&c.value.length>0?(e.openBlock(),e.createElementBlock("button",{key:1,onClick:T,class:"uploadlogs"},"\u6253\u5F00\u65E5\u5FD7\u6587\u4EF6\u76EE\u5F55")):e.createCommentVNode("",!0),e.createBaseVNode("button",{onClick:V,style:{"margin-top":"10px","margin-left":"10px"}},"\u67E5\u8BE2\u7CFB\u7EDF\u652F\u6301")])}}});
+const P=p=>(e.pushScopeId("data-v-02cdbccd"),p=p(),e.popScopeId(),p),L={id:"content"},z={style:{"font-size":"12px"}},tip={style:{"font-size":"12px",color:"#909399","margin-top":"10px","line-height":"1.9","white-space":"pre-line"}},btnrow={style:{"margin-top":"18px"}};
+const H=e.defineComponent({__name:"doctor",setup(p){
+const cfgPath=e.ref(""),busy=e.ref(!1),msg=e.ref(""),msgType=e.ref("info");
+(async()=>{try{cfgPath.value=await n.ipcRenderer.invoke("api","configPath")}catch(_){}})();
+function notify(t,ty){msg.value=t;msgType.value=ty||"info";try{ty==="success"?g.ElMessage.success(t):ty==="error"?g.ElMessage.error(t):g.ElMessage.info(t)}catch(_){}}
+async function backup(){if(busy.value)return;busy.value=!0;msg.value="";
+try{let r=await n.ipcRenderer.invoke("api","backupConfig");
+if(r&&r.ok)notify("配置已备份到："+r.path,"success");
+else if(r&&r.canceled){}
+else notify("备份失败"+(r&&r.error?"："+r.error:""),"error");
+}catch(err){notify("备份失败："+err,"error")}finally{busy.value=!1}}
+async function restore(){if(busy.value)return;busy.value=!0;msg.value="";
+try{let r=await n.ipcRenderer.invoke("api","restoreConfig");
+if(r&&r.ok)notify("恢复成功，应用即将自动重启…","success");
+else if(r&&r.canceled){}
+else notify("恢复失败"+(r&&r.error?"："+r.error:""),"error");
+}catch(err){notify("恢复失败："+err,"error")}finally{busy.value=!1}}
+return(u,i)=>{const a=g.ElButton;
+return e.openBlock(),e.createElementBlock("div",L,[
+e.createBaseVNode("div",z,"配置文件路径："+e.toDisplayString(cfgPath.value),1),
+e.createBaseVNode("div",tip,"备份内容包括：自选股及顺序、成本价、股票备注、价格提醒、分组、快捷键、主题颜色、代理等全部设置。\n备份文件建议保存到桌面、网盘或 U 盘；换电脑时点击“恢复配置”选择该文件即可，恢复前会自动先留存一份当前配置，恢复后应用自动重启。",1),
+e.createBaseVNode("div",btnrow,[
+e.createVNode(a,{type:"primary",loading:busy.value,onClick:backup},{default:e.withCtx(()=>[e.createTextVNode("备份配置")]),_:1}),
+e.createVNode(a,{loading:busy.value,style:{"margin-left":"10px"},onClick:restore},{default:e.withCtx(()=>[e.createTextVNode("恢复配置")]),_:1})
+]),
+msg.value?(e.openBlock(),e.createBaseVNode("div",{key:0,style:{"margin-top":"14px","font-size":"12px","color":msgType.value==="error"?"red":"green"},"white-space":"pre-wrap",wordbreak:"break-all"},e.toDisplayString(msg.value),1)):e.createCommentVNode("",!0)
+])}}
+});
 var U=I._export_sfc(H,[["__scopeId","data-v-02cdbccd"]]);
 exports.default=U;
-

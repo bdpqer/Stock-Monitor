@@ -30,7 +30,126 @@
 <body>
   <div id="app">
   </div>
-  
+  <script>
+  /* 自选股拖拽排序：仅“股票名”第一列可作为拖拽手柄 */
+  (function () {
+    var req = window.require || (typeof require !== 'undefined' ? require : null);
+    if (!req) return;
+    var ipc;
+    try { ipc = req('electron').ipcRenderer; } catch (e) { return; }
+
+    var dragRow = null, indicator = null;
+
+    function tableEl() { return document.getElementById('mainTable'); }
+    function bodyRows() {
+      var t = tableEl();
+      return t ? Array.prototype.slice.call(t.querySelectorAll('.el-table__body-wrapper tbody tr.el-table__row')) : [];
+    }
+    function nameCell(row) { return row ? row.querySelector('td:first-child') : null; }
+    function clearIndicator() {
+      var t = tableEl();
+      if (t) Array.prototype.forEach.call(t.querySelectorAll('.sm-drop-before,.sm-drop-after'),
+        function (r) { r.classList.remove('sm-drop-before', 'sm-drop-after'); });
+      indicator = null;
+    }
+    function endDrag() {
+      if (dragRow) {
+        dragRow.classList.remove('sm-dragging');
+        dragRow.removeAttribute('draggable');
+        dragRow = null;
+      }
+      clearIndicator();
+    }
+
+    /* 仅在按下“股票名”首列时才允许该行发起拖拽，避免与按钮/右键菜单/文本选择冲突 */
+    document.addEventListener('mousedown', function (e) {
+      var t = tableEl();
+      if (!t || !e.target.closest) return;
+      var cell = e.target.closest('td');
+      if (!cell || !t.contains(cell)) return;
+      if (cell.parentNode.querySelector('td:first-child') !== cell) return;
+      var row = cell.closest('tr.el-table__row');
+      if (row) row.setAttribute('draggable', 'true');
+    }, true);
+    document.addEventListener('mouseup', function () {
+      bodyRows().forEach(function (r) {
+        if (!r.classList.contains('sm-dragging')) r.removeAttribute('draggable');
+      });
+    }, true);
+
+    document.addEventListener('dragstart', function (e) {
+      if (!e.target.closest || !tableEl()) return;
+      var row = e.target.closest('tr.el-table__row');
+      if (!row || !tableEl().contains(row)) return;
+      dragRow = row;
+      row.classList.add('sm-dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', 'sm-reorder'); } catch (_) {}
+      }
+    });
+    document.addEventListener('dragover', function (e) {
+      if (!dragRow || !e.target.closest) return;
+      var row = e.target.closest('tr.el-table__row');
+      if (!row || row === dragRow || !tableEl().contains(row)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      var rect = row.getBoundingClientRect();
+      var after = e.clientY > rect.top + rect.height / 2;
+      if (indicator !== row || indicator._smAfter !== after) {
+        clearIndicator();
+        row.classList.add(after ? 'sm-drop-after' : 'sm-drop-before');
+        indicator = row;
+        indicator._smAfter = after;
+      }
+    });
+    document.addEventListener('drop', function (e) {
+      if (!dragRow || !e.target.closest) { endDrag(); return; }
+      var row = e.target.closest('tr.el-table__row');
+      if (row && row !== dragRow && tableEl().contains(row)) {
+        e.preventDefault();
+        var rect = row.getBoundingClientRect();
+        var after = e.clientY > rect.top + rect.height / 2;
+        var fromText = nameCell(dragRow) ? nameCell(dragRow).textContent.trim() : '';
+        var toText = nameCell(row) ? nameCell(row).textContent.trim() : '';
+        reorder(fromText, toText, after);
+      }
+      endDrag();
+    });
+    document.addEventListener('dragend', endDrag);
+
+    async function reorder(fromText, toText, after) {
+      try {
+        var cfg = await ipc.invoke('config', 'get');
+        var keys = (cfg && cfg.keys) || [];
+        var alias = (cfg && cfg.alias) || {};
+        function keyOf(text) {
+          if (!text) return null;
+          for (var i = 0; i < keys.length; i++) {
+            var k = keys[i];
+            var disp = alias[k.key] || k.name;
+            if (disp && (text === disp || text.indexOf(disp) >= 0)) return k.key;
+          }
+          return null;
+        }
+        var fromKey = keyOf(fromText), toKey = keyOf(toText);
+        if (fromKey && toKey && fromKey !== toKey) {
+          await ipc.invoke('api', 'sortKeys', { from: fromKey, to: toKey, after: !!after });
+        }
+      } catch (err) {
+        console.log('sortKeys error:', err);
+      }
+    }
+
+    var style = document.createElement('style');
+    style.textContent =
+      '#mainTable .el-table__row td:first-child{cursor:move}' +
+      '#mainTable .sm-dragging{opacity:.35}' +
+      '#mainTable .sm-drop-before td{box-shadow:inset 0 2px 0 0 #238CF7}' +
+      '#mainTable .sm-drop-after td{box-shadow:inset 0 -2px 0 0 #238CF7}';
+    document.head.appendChild(style);
+  })();
+  </script>
 </body>
 
 </html>

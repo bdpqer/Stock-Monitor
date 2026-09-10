@@ -119,7 +119,7 @@ class Ue extends v{configWindow(e){e.width=680,e.height=371,e.frame=!1}onWindowC
       }, 50); // 短暂延时确保配置已保存
     }
     return result;
-},async removeStock(i,e){return r.removeStock(e),!0},async setTopStock(i,e){r.setTopStock(e)},async listUserSug(){return r.config.keys},getStock(i){return b.getStockData(i)},onEvent(i,e){b.onEvent(i,e)},removeEvent(i,e){b.removeEvent(i,e)},forStockUpdate(){b.forceUpdate()}},ae=require("https-proxy-agent");
+},async removeStock(i,e){return r.removeStock(e),!0},async setTopStock(i,e){r.setTopStock(e)},async sortKeys(i){let f=i&&i.from,n=i&&i.to,a=i&&i.after;if(!f||!n||f===n)return!1;return r.editWith(c=>{let fi=c.keys.findIndex(k=>k.key===f);if(fi<0)return!1;let ti=c.keys.findIndex(k=>k.key===n);if(ti<0)return!1;let item=c.keys.splice(fi,1)[0];ti=c.keys.findIndex(k=>k.key===n);if(ti<0)return!1;c.keys.splice(a?ti+1:ti,0,item)}),!0},async listUserSug(){return r.config.keys},getStock(i){return b.getStockData(i)},onEvent(i,e){b.onEvent(i,e)},removeEvent(i,e){b.removeEvent(i,e)},forStockUpdate(){b.forceUpdate()}},ae=require("https-proxy-agent");
 h.default.defaults.timeout=3e3;
 h.default.defaults.httpsAgent=new ie.default.Agent({rejectUnauthorized:!1});
 var x=new Map;
@@ -403,6 +403,7 @@ if(e=="goods")return await C.getGoodsInfo();
 if(e=="payurl")return await C.getPayURL(t);
 if(e=="delStock")return T.removeStock(i,t);
 if(e=="topStock")return T.setTopStock(i,t);
+if(e=="sortKeys")return T.sortKeys(t);
 if(e=="paystatus")return await C.getPayStatus(t);
 if(e=="userinfo"){if(!r.config.token)return;
 let n=await C.getUserInfo();
@@ -422,6 +423,20 @@ if(e=="getstock")return T.getStock(t);
 if(e=="exit")W.poke("ExitStill.App",null),setTimeout(()=>{u.app.quit()},600);
 else{if(e=="send_advice")return await C.sendAdvice(t);
 if(e=="configPath")return r.getPath();
+if(e=="backupConfig"){let dp=B.getDataPath(),src=te.join(dp,"stock-monitor-config.json"),stamp=N.default().format("YYYYMMDD-HHmmss");
+let rs=await u.dialog.showSaveDialog({title:"备份配置",defaultPath:te.join(u.app.getPath("desktop"),"stock-monitor-config-"+stamp+".json"),filters:[{name:"JSON 文件",extensions:["json"]}]});
+if(rs.canceled||!rs.filePath)return{ok:false,canceled:true};
+try{We.existsSync(src)||We.writeFileSync(src,JSON.stringify(r.config,null,2));We.copyFileSync(src,rs.filePath);d.log("backupConfig -> "+rs.filePath);return{ok:true,path:rs.filePath}}catch(err){d.log("backupConfig err:"+err);return{ok:false,error:err+""}}}
+if(e=="restoreConfig"){let rs=await u.dialog.showOpenDialog({title:"恢复配置",properties:["openFile"],filters:[{name:"JSON 文件",extensions:["json"]}]});
+if(rs.canceled||!rs.filePaths||!rs.filePaths.length)return{ok:false,canceled:true};
+try{let data=JSON.parse(We.readFileSync(rs.filePaths[0],"utf8"));
+if(typeof data!=="object"||data===null)return{ok:false,error:"文件内容不是有效的配置"};
+let cf=await u.dialog.showMessageBox({type:"warning",title:"恢复配置",message:"恢复将覆盖当前配置并自动重启应用，确定继续？",buttons:["取消","确定恢复"],defaultId:0,cancelId:0});
+if(cf.response!==1)return{ok:false,canceled:true};
+let dst=te.join(B.getDataPath(),"stock-monitor-config.json");
+try{We.existsSync(dst)&&We.copyFileSync(dst,dst+".bak-"+Date.now())}catch(bk){}
+We.writeFileSync(dst,JSON.stringify(data,null,2),"utf8");d.log("restoreConfig ok, relaunch");
+setTimeout(()=>{u.app.relaunch();u.app.exit(0)},600);return{ok:true}}catch(err){d.log("restoreConfig err:"+err);return{ok:false,error:err+""}}}
 if(e=="testProxy")return C.testProxy(t.proxyHost,t.proxyPort);
 if(e=="exception")return u.app.isPackaged?await C.sendException(t):!1;
 if(e=="gpuInfo")return u.app.getGPUFeatureStatus();
@@ -458,7 +473,7 @@ const t=u.Menu.buildFromTemplate([{label:"\u6253\u5F00\u8BBE\u7F6E\u9875\u9762",
 (s=m.win)==null||s.webContents.send("uimodechange")}},{label:"\u9762\u677F\u5C45\u4E2D",click:async function(){const s={type:"info",title:"\u627E\u4E0D\u5230\u9762\u677F\u4E86\uFF1F",message:"\u8BE5\u884C\u4E3A\u4F1A\u628A\u4F60\u9762\u677F\u653E\u5230\u5C4F\u5E55\u4E2D\u95F4\u5E76\u4E14\u663E\u793A\u51FA\u6765",buttons:["\u5426","\u662F"]};
 (await u.dialog.showMessageBox(s)).response==1&&(m.setToCenter(),m.showOnScreen())}},{label:"\u4E0A\u4F20\u65E5\u5FD7",click:async function(){const s={type:"info",title:"\u662F\u5426\u4E0A\u4F20\u65E5\u5FD7\uFF1F",message:"\u8BE5\u884C\u4E3A\u4F1A\u628A\u4F60\u7684\u8C03\u8BD5\u65E5\u5FD7\u4E0A\u4F20\u7ED9\u5F00\u53D1\u8005\u5E2E\u52A9\u5206\u6790\u95EE\u9898\u3002",buttons:["\u5426","\u662F"]};
 (await u.dialog.showMessageBox(s)).response==1&&await d.compressAndSend()}},{label:"\u9000\u51FA",click:function(){r.checkFirstLaunchAndQuickExit()?(W.poke("QuickExit.IM",null),O(null,"advice",null)):(W.poke("CF.OUT",null),setTimeout(()=>{u.app.quit()},700))}}]);
-if(z) { z.setToolTip("\u5E7D\u7075\u770B\u76D8"); z.setContextMenu(t); z.on("double-click",function(){m.showIfOnScreenBorder(),m.showOnScreen()}); } u.Menu.setApplicationMenu(null); }
+if(z) { z.setToolTip("Stock-monitor"); z.setContextMenu(t); z.on("double-click",function(){m.showIfOnScreenBorder(),m.showOnScreen()}); } u.Menu.setApplicationMenu(null); }
 r.on("onConfig",async(i,e)=>{let t=!1;
 for(let s in e){let n=e[s];
     (n=="keys"||n=="cost"||n=="alias"||n=="alertInfos"||n=="groups")&&(t=!0)}// 注释掉配置同步 - 跳过向后端推送配置
