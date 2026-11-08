@@ -12,6 +12,13 @@
     "VITE_DEV_SERVER_PORT": 3344
   },
   "scripts": {
+    "start": "electron .",
+    "build:main": "node scripts/build-main.mjs",
+    "build:renderer": "node scripts/inject-renderer.mjs",
+    "check:patches": "node scripts/inject-renderer.mjs --check",
+    "smoke": "node scripts/smoke-test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "restore:sources": "node scripts/restore-sources.mjs",
     "build": "electron-builder"
   },
   "build": {
@@ -81,7 +88,10 @@
     "vue-router": "^4.0.15"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "electron": "^40.1.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
   }
 }
