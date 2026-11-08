@@ -92,6 +92,14 @@ const mainChecks = [
   ['登录服务为离线 stub', () => main.includes('login-disabled')],
   ['会员校验本地恒真', () => /isVip\(\)\s*\{\s*return true/.test(main)],
   ['未回归云端 API 调用', () => !main.includes('/user/login_wechat2') && !main.includes('/statistic/logfile')],
+  // 离线启动流程：这几项曾只存在于压缩产物中，漏掉会导致「运行没有主界面」
+  ['离线启动：从 userData 重建配置', () => main.includes('reloadFromUserData') && main.includes('setDataPath')],
+  ['离线启动：强制开启盈亏合计', () => /profiteTotal\s*=\s*true/.test(main)],
+  ['离线启动：跳过登录窗直达主界面', () => main.includes('direct show indexWindow') && !main.includes('login.show(')],
+  ['离线启动：显示后立即刷新行情', () => main.includes('indexWindow.didShowCallBack && indexWindow.didShowCallBack()')],
+  ['设备 ID 读取容错（注册表不可用时）', () => main.includes('safeMachineId') && main.includes('randomUUID')],
+  ['托盘图标使用 logo.png', () => main.includes('"logo.png"') && !main.includes('assetsPath')],
+  ['启动阶段容错（任一初始化失败仍显示主窗）', () => main.includes('safeInit') && main.includes('whenReady failed')],
 ]
 for (const [label, check] of mainChecks) report(label, check())
 

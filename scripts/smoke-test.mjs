@@ -124,6 +124,10 @@ for (const [label, keyword] of [
   ['配置恢复 IPC', 'restoreConfig'],
   ['离线登录 stub', 'login-disabled'],
   ['腾讯行情接口', 'web.sqt.gtimg.cn'],
+  // 离线启动流程（曾只存在于压缩产物，漏掉会卡在登录窗、看不到主界面）
+  ['从 userData 重建配置', 'reloadFromUserData'],
+  ['直达主界面', 'direct show indexWindow'],
+  ['强制显示行情', 'profiteTotal = true'],
 ]) {
   const ok = source.includes(keyword)
   console.log(`${ok ? 'OK  ' : 'FAIL'}  ${label}`)

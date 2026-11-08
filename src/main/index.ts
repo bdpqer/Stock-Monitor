@@ -179,55 +179,80 @@ if (!app.requestSingleInstanceLock()) {
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true'
 
 
+/**
+ * 启动阶段的非关键初始化统一容错。
+ *
+ * 原版把托盘、快捷键、代理等全部串在 whenReady 里，任一步抛错（图标缺失、
+ * 注册表不可读、快捷键被占用等）都会让后面的 indexWindow.show() 永不执行，
+ * 表现为「进程还在、但没有主界面」。离线版尤其容易踩到图标路径问题。
+ */
+function safeInit(name: string, fn: () => void) {
+  try {
+    fn()
+  } catch (error: any) {
+    logger.log(`[startup] ${name} failed: ${error?.message ?? error}`)
+  }
+}
+
 ///创建主页窗口
 let indexWindow: IndexWindow = new IndexWindow();
 indexWindow.hideSwitch = local_store.config.hideSwitch;
 indexWindow.didShowCallBack = function(){
-  if(local_store.isVip){
-    StockService.forStockUpdate();
-  }
-  
+  // 离线版：会员校验本地恒真，无需判断，直接启动行情轮询
+  StockService.forStockUpdate();
 };
 
+/**
+ * 离线版启动流程（回归首次离线化时直接打在压缩产物上的补丁）。
+ *
+ * sourcemap 中的 index.ts 是「在线版」：app ready 后按 token 是否存在决定
+ * 先弹微信登录窗还是显示主窗口，且没有显式设置 electron-json-storage 的
+ * dataPath。离线版云端登录已禁用，沿用在线流程会永远卡在登录窗；同时默认
+ * dataPath 是 `userData/storage/`，会读到一份空配置。
+ *
+ * 因此必须：切到 userData 并重建配置单例 → 首启补默认自选股 → 强制
+ * profiteTotal（渲染层据此显示行情）→ 直接显示主窗口 → 立即刷新行情。
+ */
 app.whenReady().then(function () {
+  const conf = local_store.reloadFromUserData();
+
+  if (conf.keys.length === 0) {
+    conf.keys = [
+      { code: "000001", marketCode: "sz", key: "sz000001", name: "平安银行" },
+      { code: "600036", marketCode: "sh", key: "sh600036", name: "招商银行" },
+    ] as any as Sug[];
+  }
+  conf.profiteTotal = true;
+  conf.save();
+
   logger.log("platform:"+process.platform);
   logger.log("sysVersion:"+process.getSystemVersion());
   logger.log("appVersion:"+app.getVersion());
 
-  statistic.poke("CF.OA", null);
-  statistic.poke("CF.IN", null);
-
-  SetUpProxy(local_store.config);
-
-  registerCountDown();
-  createTray();
-  regiserIpcChannel();
-
-  if(local_store.config.shortCutsSwitch){
-    let shortCuts = local_store.config.shortCuts;
-    registerGlobalShortcut(shortCuts);
-  }
-  checkDynConfigs();
-
-  let conf = local_store.config;
-  app.setLoginItemSettings({openAtLogin:conf.openAtLogin});
-
-  if (!conf.token) {
-    let login = new LoginWindow();
-    //监听登录成功
-    login.onLoginFinish = (data:any) => {
-      checkInviteCode(data);
-      checkSyncData();
-      indexWindow.show();
-      logger.log("login show indexWindow");
+  safeInit('SetUpProxy', () => SetUpProxy(local_store.config));
+  safeInit('registerCountDown', () => registerCountDown());
+  safeInit('createTray', () => createTray());
+  safeInit('regiserIpcChannel', () => regiserIpcChannel());
+  safeInit('registerGlobalShortcut', () => {
+    if(local_store.config.shortCutsSwitch){
+      registerGlobalShortcut(local_store.config.shortCuts);
     }
-    login.show();
-    logger.log("login show LoginWindow");
-  } else {
-    checkSyncData();
-    indexWindow.show();
-    logger.log("direct show indexWindow");
-  }
+  });
+  // checkDynConfigs(); 离线版禁用自动更新检查（云端 getConfig 已 stub）
+
+  safeInit('setLoginItemSettings', () => app.setLoginItemSettings({openAtLogin:local_store.config.openAtLogin}));
+  safeInit('checkSyncData', () => {
+    // token 为空时立即返回，仅兼容已有云端配置
+    void checkSyncData().catch((e:any) => logger.log('[startup] checkSyncData failed: ' + e));
+  });
+
+  // 主窗口是启动的核心目标，放在最后，不受上面任何非关键初始化失败影响
+  indexWindow.show();
+  logger.log("direct show indexWindow");
+  // AppWindow.show() 不触发 didShowCallBack，需显式启动一次行情轮询
+  indexWindow.didShowCallBack && indexWindow.didShowCallBack();
+}).catch((error: any) => {
+  logger.log(`[startup] whenReady failed: ${error?.message ?? error}`)
 });
 
 /**
@@ -813,10 +838,19 @@ function regiserIpcChannel() {
 
 var tray: any;
 function createTray() {
-  const assetsPath = app.isPackaged ? path.join(process.resourcesPath, "build/icons") : "build/icons";
-  let ptoi = assetsPath + "/24x24.png";
+  // 离线版：打包时 resources 下只有 logo.png（见 package.json extraResources），
+  // 在线版的 build/icons/24x24.png 并不存在，new Tray 会抛错并中断整个启动流程。
+  const ptoi = app.isPackaged
+    ? path.join(process.resourcesPath, "logo.png")
+    : path.join(__dirname, "../renderer", "logo.png");
   logger.log("path icon:" + ptoi);
-  tray = new Tray(ptoi)
+  try {
+    tray = new Tray(ptoi)
+  } catch (error: any) {
+    logger.log("Failed to create tray icon:" + error.message);
+    tray = null;
+  }
+  if (tray == null) return;   // 托盘是可选能力，图标缺失不应影响主窗口
 
   const contextMenu = Menu.buildFromTemplate([
     {

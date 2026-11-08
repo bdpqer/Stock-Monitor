@@ -22,22 +22,24 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // src/main/index.ts
-var import_electron10 = require("electron");
+var import_electron11 = require("electron");
 var import_os = require("os");
 
 // src/extensions/electron_extensions.ts
 var import_electron = require("electron");
 var import_path = require("path");
 import_electron.BrowserWindow.prototype.loadWithRoute = function(url) {
-  if (import_electron.app.isPackaged) {
-    this.loadURL("file://" + (0, import_path.join)(__dirname, "../renderer/index.html") + `#${url}`);
-  } else {
-    this.loadURL(`http://${process.env["VITE_DEV_SERVER_HOST"]}:${process.env["VITE_DEV_SERVER_PORT"]}#${url}`);
+  const host = process.env["VITE_DEV_SERVER_HOST"];
+  const port = process.env["VITE_DEV_SERVER_PORT"];
+  if (!import_electron.app.isPackaged && host && port) {
+    this.loadURL(`http://${host}:${port}#${url}`);
+    return;
   }
+  this.loadURL("file://" + (0, import_path.join)(__dirname, "../renderer/index.html") + `#${url}`);
 };
 
 // src/main/base/app_window.ts
-var import_electron2 = require("electron");
+var import_electron3 = require("electron");
 var import_path2 = require("path");
 
 // src/main/service/logger.ts
@@ -46,8 +48,18 @@ var import_electron_log = __toESM(require("electron-log"));
 // src/main/storage/local_store.ts
 var import_events = __toESM(require("events"));
 var import_moment = __toESM(require("moment"));
+var import_electron2 = require("electron");
+var import_crypto = require("crypto");
 var storage = require("electron-json-storage");
 var { machineIdSync } = require("node-machine-id");
+function safeMachineId() {
+  try {
+    return machineIdSync(true);
+  } catch (err) {
+    logger_default.log("machineIdSync unavailable, fallback to local uuid: " + err);
+    return "offline-" + (0, import_crypto.randomUUID)();
+  }
+}
 var eventEmmiter = new import_events.default();
 var Config = class {
   constructor() {
@@ -55,7 +67,7 @@ var Config = class {
     this.column = [0, 1, 2, 3, 4, 9];
     this.keys = [];
     this.opa = 100;
-    this.uuid = machineIdSync(true);
+    this.uuid = safeMachineId();
     this.model = "nm";
     this.bounds = null;
     this.alias = {};
@@ -241,6 +253,21 @@ var local_store_default = {
       }
     }
   },
+  /**
+   * 离线版启动流程：app ready 后把存储目录切到 userData 并重建配置单例。
+   *
+   * 模块顶层读取发生在 app ready 之前，electron-json-storage 会使用默认的
+   * `userData/storage/` 子目录；而实际配置保存在 userData 根目录。若不重置，
+   * 会读到一份空配置（token 为空、无自选股、profiteTotal 为 false），
+   * 进而误入已被禁用的登录窗口、且主界面不显示行情。
+   */
+  reloadFromUserData() {
+    storage.setDataPath(import_electron2.app.getPath("userData"));
+    appConfig = void 0;
+    const cfg = this.config;
+    oldConfig = JSON.parse(JSON.stringify(cfg));
+    return cfg;
+  },
   restore() {
     this.applyWith(new Config());
   },
@@ -351,7 +378,7 @@ var statistic_default = {
 };
 
 // src/main/base/app_window.ts
-var import_electron3 = require("electron");
+var import_electron4 = require("electron");
 var AppWindow = class _AppWindow {
   constructor() {
     this.winName = null;
@@ -402,7 +429,7 @@ var AppWindow = class _AppWindow {
    */
   setPosition(x, y) {
     let bounds = this.win?.getBounds();
-    let sf = import_electron3.screen.getDisplayMatching(bounds).scaleFactor;
+    let sf = import_electron4.screen.getDisplayMatching(bounds).scaleFactor;
     if (sf !== 1 && sf !== 2 && sf !== 3) {
       bounds.x = x;
       bounds.y = y;
@@ -448,9 +475,9 @@ var AppWindow = class _AppWindow {
         devTools: true
       }
     };
-    import_electron2.Menu.setApplicationMenu(null);
+    import_electron3.Menu.setApplicationMenu(null);
     this.configWindow(options);
-    this.win = new import_electron2.BrowserWindow(options);
+    this.win = new import_electron3.BrowserWindow(options);
     this.onWindowCreated(this.win);
     this.win?.once("ready-to-show", () => {
       this.win?.show();
@@ -490,7 +517,7 @@ var AppWindow = class _AppWindow {
    * 窗口显示时回调
    */
   onWindowShown() {
-    if (!import_electron2.app.isPackaged) {
+    if (!import_electron3.app.isPackaged) {
       this.win?.webContents.openDevTools({ mode: "detach" });
     }
   }
@@ -517,7 +544,7 @@ var AddStockWindow = class extends AppWindow {
 };
 
 // src/main/pages/IndexWindow.ts
-var import_electron5 = require("electron");
+var import_electron6 = require("electron");
 
 // src/main/service/index.ts
 var service_default = {
@@ -1068,7 +1095,7 @@ var StockApi_default = {
 };
 
 // src/main/service/stock.ts
-var import_electron4 = require("electron");
+var import_electron5 = require("electron");
 var import_events2 = __toESM(require("events"));
 var eventEmmiter2 = new import_events2.default();
 var _indexWindowVisible = true;
@@ -1256,7 +1283,7 @@ async function _updateStockInfo(force = false) {
     logger_default.log(exceptionStr);
   }
 }
-import_electron4.ipcMain.on("fetch-stock", () => {
+import_electron5.ipcMain.on("fetch-stock", () => {
   if (prevResponse != null) {
     ipcSender?.send("stock-update", prevResponse);
   }
@@ -1344,7 +1371,7 @@ var IndexWindow = class extends AppWindow {
     }
     let bounds = local_store_default.config.bounds;
     if (bounds == null) {
-      let sb = import_electron5.screen.getPrimaryDisplay().bounds;
+      let sb = import_electron6.screen.getPrimaryDisplay().bounds;
       let y = sb.y + sb.height - 150;
       let x = sb.x + sb.width - 250;
       bounds = { x, y, width: 250, height: 150 };
@@ -1402,7 +1429,7 @@ var IndexWindow = class extends AppWindow {
       return;
     }
     let bounds = this.win?.getBounds();
-    let sb = import_electron5.screen.getDisplayMatching(bounds).bounds;
+    let sb = import_electron6.screen.getDisplayMatching(bounds).bounds;
     if (!sb) {
       logger_default.log("sb invalide.");
       return;
@@ -1431,7 +1458,7 @@ var IndexWindow = class extends AppWindow {
       logger_default.log("bounds invalide.");
       return;
     }
-    let sb = import_electron5.screen.getDisplayMatching(bounds).bounds;
+    let sb = import_electron6.screen.getDisplayMatching(bounds).bounds;
     if (this.hideType == HIDE_TYPE_RIGHT) {
       let tox = sb.x + sb.width - bounds.width;
       let toy = bounds.y;
@@ -1450,7 +1477,7 @@ var IndexWindow = class extends AppWindow {
   }
   setToCenter() {
     let bounds = this.win?.getBounds();
-    let sb = import_electron5.screen.getPrimaryDisplay().bounds;
+    let sb = import_electron6.screen.getPrimaryDisplay().bounds;
     let cx = sb.width / 2 - bounds.width / 2;
     let cy = sb.height / 2 - bounds.height / 2;
     cx = Math.floor(cx);
@@ -1468,11 +1495,11 @@ var IndexWindow = class extends AppWindow {
 };
 
 // src/main/pages/LoginWindow.ts
-var import_electron7 = require("electron");
+var import_electron8 = require("electron");
 
 // src/main/api/codffect.ts
 var import_axios2 = __toESM(require("axios"));
-var import_electron6 = require("electron");
+var import_electron7 = require("electron");
 var import_https2 = __toESM(require("https"));
 var FormData = require("form-data");
 var HttpsProxyAgent2 = require("https-proxy-agent");
@@ -1488,7 +1515,7 @@ var getPublicConfig = () => {
   let deviceid = conf.uuid;
   let os = process.platform;
   let osv = process.getSystemVersion();
-  let appv = import_electron6.app.getVersion();
+  let appv = import_electron7.app.getVersion();
   let osa = "";
   if (["x32", "arm", "mips", "ia32", ""].includes(process.arch)) {
     osa = "32bit";
@@ -1572,8 +1599,8 @@ var LoginWindow = class extends AppWindow {
   ///窗口创建成功
   onWindowCreated(win) {
     win.loadWithRoute("/login");
-    import_electron7.ipcMain.removeHandler("login");
-    import_electron7.ipcMain.handle("login", async (event, type, dataUp) => {
+    import_electron8.ipcMain.removeHandler("login");
+    import_electron8.ipcMain.handle("login", async (event, type, dataUp) => {
       if (type === "device") {
         this.onLoginFinish?.call(this, null);
         win.close();
@@ -1605,7 +1632,7 @@ var LoginWindow = class extends AppWindow {
   }
   ///窗口关闭
   onWindowClosed() {
-    import_electron7.ipcMain.removeHandler("login");
+    import_electron8.ipcMain.removeHandler("login");
   }
 };
 
@@ -1678,7 +1705,7 @@ var SetCostWindow = class extends AppWindow {
 };
 
 // src/main/plugins/wechat.ts
-var import_electron8 = require("electron");
+var import_electron9 = require("electron");
 var inited = false;
 function WechatPlugin() {
   if (inited) {
@@ -1686,7 +1713,7 @@ function WechatPlugin() {
   }
   inited = true;
   var wechatState = -2;
-  import_electron8.session.defaultSession.webRequest.onBeforeRequest((detail, callback) => {
+  import_electron9.session.defaultSession.webRequest.onBeforeRequest((detail, callback) => {
     if (detail.url.startsWith("https://gs.codeffect.top/user/login_wechat")) {
       let url = new URL(detail.url);
       let code = url.searchParams.get("code");
@@ -1713,104 +1740,13 @@ function WechatPlugin() {
 }
 
 // src/main/index.ts
-var import_path4 = __toESM(require("path"));
-var import_fs2 = __toESM(require("fs"));
+var import_path3 = __toESM(require("path"));
+var import_fs = __toESM(require("fs"));
 var import_moment2 = __toESM(require("moment"));
 
 // src/main/service/system.ts
 var import_jszip = __toESM(require("jszip"));
-var import_fs = __toESM(require("fs"));
-var import_path3 = __toESM(require("path"));
-var import_electron9 = require("electron");
-var system_default = {
-  biggerVersion(first, sec) {
-    let vs1 = first.split(".");
-    let vs2 = sec.split(".");
-    for (let i in vs1) {
-      let a = parseInt(vs1[i]);
-      let b = parseInt(vs2[i]);
-      if (a > b) {
-        return true;
-      } else if (a == b) {
-        continue;
-      } else {
-        return false;
-      }
-    }
-    return true;
-  },
-  isWindows7() {
-    if (process.platform == "win32") {
-      let sysVer = process.getSystemVersion();
-      let first_num = parseInt(sysVer.split(".")[0]);
-      let sec_num = parseInt(sysVer.split(".")[1]);
-      if (first_num <= 6 && sec_num <= 1) {
-        return true;
-      } else {
-        return false;
-      }
-    } else {
-      return false;
-    }
-  },
-  async unzipInstallFile(path2) {
-    let fdata = import_fs.default.readFileSync(path2);
-    let jz = await import_jszip.default.loadAsync(fdata);
-    let insFilePath = null;
-    let insFileName = null;
-    for (let k in jz.files) {
-      let exe = jz.files[k];
-      let u8 = await exe.async("uint8array");
-      let bname = import_path3.default.basename(path2);
-      insFilePath = path2.replace(bname, k);
-      insFileName = bname;
-      import_fs.default.writeFileSync(insFilePath, u8);
-      logger_default.log("unzip file ok.");
-    }
-    return { name: insFileName, path: insFilePath };
-  },
-  async showAutoInstall(exe) {
-    const options = {
-      type: "info",
-      title: "\u65B0\u7248\u672C" + exe.name + "\u4E0B\u8F7D\u5B8C\u6210\uFF0C\u662F\u5426\u9A6C\u4E0A\u5B89\u88C5\uFF1F",
-      message: exe.note,
-      buttons: ["\u9A6C\u4E0A\u5B89\u88C5", "\u4EE5\u540E\u5B89\u88C5", "\u8DF3\u8FC7\u6B64\u7248\u672C"]
-    };
-    let index = await import_electron9.dialog.showMessageBox(options);
-    if (index.response == 0) {
-      logger_default.log("will open:" + exe.path);
-      let errs = await import_electron9.shell.openPath(exe.path);
-      logger_default.log(errs);
-    } else if (index.response == 1) {
-      local_store_default.applyWith({
-        preparedInstall: exe
-      });
-    } else {
-      local_store_default.applyWith({
-        skipInstall: exe.version
-      });
-    }
-  },
-  async isFileExist(filePath) {
-    let isExists = await this.getStat(filePath);
-    if (isExists == null) {
-      return false;
-    } else {
-      return isExists.isFile();
-    }
-  },
-  getStat(filePath) {
-    return new Promise((resolve, reject) => {
-      import_fs.default.stat(filePath, (err, stats) => {
-        if (err) {
-          resolve(null);
-        } else {
-          resolve(stats);
-        }
-      });
-    });
-  }
-};
+var import_electron10 = require("electron");
 
 // src/main/index.ts
 var import_electron_dl = __toESM(require("electron-dl"));
@@ -1883,77 +1819,10 @@ var alertDialog = {};
 process.on("uncaughtException", function(error) {
   let exceptionStr = "uncaughtException:" + error + "|||" + error.stack;
   logger_default.log(exceptionStr);
-  if (import_electron10.app.isPackaged) {
+  if (import_electron11.app.isPackaged) {
     codffect_default.sendException(exceptionStr);
   }
 });
-async function checkDynConfigs() {
-  let data = await codffect_default.getConfig(import_electron10.app.getVersion());
-  if (data != null) {
-    local_store_default.applyWith({ dynamicConfig: data });
-    setTimeout(async () => {
-      let autoUp = data.autoUp;
-      if (autoUp == null || autoUp == void 0) {
-        return;
-      }
-      let downloadUrl = autoUp.url;
-      if (process.platform === "darwin") {
-        downloadUrl = autoUp.mac_url;
-      }
-      if (!downloadUrl || downloadUrl == "") {
-        return;
-      }
-      let releaseNote = autoUp.note;
-      let version = autoUp.version;
-      if (local_store_default.config.skipInstall == version) {
-        logger_default.log("user skip this version:" + version);
-        return;
-      }
-      if (system_default.biggerVersion(import_electron10.app.getVersion(), version)) {
-        logger_default.log("bigger version.no need update.");
-        return;
-      }
-      if (local_store_default.config.preparedInstall.version == version) {
-        let isInstallFileOK = await system_default.isFileExist(local_store_default.config.preparedInstall.path);
-        if (isInstallFileOK) {
-          system_default.showAutoInstall(local_store_default.config.preparedInstall);
-          return;
-        }
-      }
-      let mainWindow = indexWindow.win;
-      if (mainWindow) {
-        import_electron_dl.default.download(mainWindow, downloadUrl, {
-          onStarted: (item) => {
-            logger_default.log("start:");
-            logger_default.log(item);
-          },
-          onProgress: (item) => {
-            logger_default.log("progress:");
-            logger_default.log(item);
-          }
-        }).then(async (item) => {
-          logger_default.log("download ok:");
-          logger_default.log(item);
-          let savePath = item.savePath;
-          let fileName = item.getFilename();
-          if (fileName.endsWith(".zip")) {
-            let exe = await system_default.unzipInstallFile(savePath);
-            exe.note = releaseNote;
-            exe.version = version;
-            system_default.showAutoInstall(exe);
-          } else {
-            let dmg = { name: fileName, path: savePath };
-            dmg.note = releaseNote;
-            dmg.version = version;
-            system_default.showAutoInstall(dmg);
-          }
-        });
-      } else {
-        logger_default.log("indexWindow not ready.ignore download.");
-      }
-    }, 1e4);
-  }
-}
 function checkInviteCode(data) {
   if (data == null) {
     return;
@@ -1987,64 +1856,68 @@ async function checkSyncData() {
     local_store_default.applyWith(dynConf);
   }
 }
-if ((0, import_os.release)().startsWith("6.1")) import_electron10.app.disableHardwareAcceleration();
-if (process.platform === "win32") import_electron10.app.setAppUserModelId(import_electron10.app.getName());
-if (process.platform === "darwin" && import_electron10.app.isPackaged) {
-  import_electron10.app.dock.hide();
+if ((0, import_os.release)().startsWith("6.1")) import_electron11.app.disableHardwareAcceleration();
+if (process.platform === "win32") import_electron11.app.setAppUserModelId(import_electron11.app.getName());
+if (process.platform === "darwin" && import_electron11.app.isPackaged) {
+  import_electron11.app.dock.hide();
 }
-if (!import_electron10.app.requestSingleInstanceLock()) {
-  import_electron10.app.quit();
+if (!import_electron11.app.requestSingleInstanceLock()) {
+  import_electron11.app.quit();
   process.exit(0);
 }
 process.env["ELECTRON_DISABLE_SECURITY_WARNINGS"] = "true";
+function safeInit(name, fn) {
+  try {
+    fn();
+  } catch (error) {
+    logger_default.log(`[startup] ${name} failed: ${error?.message ?? error}`);
+  }
+}
 var indexWindow = new IndexWindow();
 indexWindow.hideSwitch = local_store_default.config.hideSwitch;
 indexWindow.didShowCallBack = function() {
-  if (local_store_default.isVip) {
-    service_default.forStockUpdate();
-  }
+  service_default.forStockUpdate();
 };
-import_electron10.app.whenReady().then(function() {
+import_electron11.app.whenReady().then(function() {
+  const conf = local_store_default.reloadFromUserData();
+  if (conf.keys.length === 0) {
+    conf.keys = [
+      { code: "000001", marketCode: "sz", key: "sz000001", name: "\u5E73\u5B89\u94F6\u884C" },
+      { code: "600036", marketCode: "sh", key: "sh600036", name: "\u62DB\u5546\u94F6\u884C" }
+    ];
+  }
+  conf.profiteTotal = true;
+  conf.save();
   logger_default.log("platform:" + process.platform);
   logger_default.log("sysVersion:" + process.getSystemVersion());
-  logger_default.log("appVersion:" + import_electron10.app.getVersion());
-  statistic_default.poke("CF.OA", null);
-  statistic_default.poke("CF.IN", null);
-  SetUpProxy(local_store_default.config);
-  registerCountDown();
-  createTray();
-  regiserIpcChannel();
-  if (local_store_default.config.shortCutsSwitch) {
-    let shortCuts = local_store_default.config.shortCuts;
-    registerGlobalShortcut(shortCuts);
-  }
-  checkDynConfigs();
-  let conf = local_store_default.config;
-  import_electron10.app.setLoginItemSettings({ openAtLogin: conf.openAtLogin });
-  if (!conf.token) {
-    let login = new LoginWindow();
-    login.onLoginFinish = (data) => {
-      checkInviteCode(data);
-      checkSyncData();
-      indexWindow.show();
-      logger_default.log("login show indexWindow");
-    };
-    login.show();
-    logger_default.log("login show LoginWindow");
-  } else {
-    checkSyncData();
-    indexWindow.show();
-    logger_default.log("direct show indexWindow");
-  }
+  logger_default.log("appVersion:" + import_electron11.app.getVersion());
+  safeInit("SetUpProxy", () => SetUpProxy(local_store_default.config));
+  safeInit("registerCountDown", () => registerCountDown());
+  safeInit("createTray", () => createTray());
+  safeInit("regiserIpcChannel", () => regiserIpcChannel());
+  safeInit("registerGlobalShortcut", () => {
+    if (local_store_default.config.shortCutsSwitch) {
+      registerGlobalShortcut(local_store_default.config.shortCuts);
+    }
+  });
+  safeInit("setLoginItemSettings", () => import_electron11.app.setLoginItemSettings({ openAtLogin: local_store_default.config.openAtLogin }));
+  safeInit("checkSyncData", () => {
+    void checkSyncData().catch((e) => logger_default.log("[startup] checkSyncData failed: " + e));
+  });
+  indexWindow.show();
+  logger_default.log("direct show indexWindow");
+  indexWindow.didShowCallBack && indexWindow.didShowCallBack();
+}).catch((error) => {
+  logger_default.log(`[startup] whenReady failed: ${error?.message ?? error}`);
 });
-import_electron10.app.on("window-all-closed", () => {
-  import_electron10.globalShortcut.unregisterAll();
-  import_electron10.app.quit();
+import_electron11.app.on("window-all-closed", () => {
+  import_electron11.globalShortcut.unregisterAll();
+  import_electron11.app.quit();
 });
-import_electron10.app.on("will-quit", () => {
-  import_electron10.globalShortcut.unregisterAll();
+import_electron11.app.on("will-quit", () => {
+  import_electron11.globalShortcut.unregisterAll();
 });
-import_electron10.app.on("second-instance", () => {
+import_electron11.app.on("second-instance", () => {
   if (indexWindow.win) {
     if (indexWindow.win.isMinimized()) {
       indexWindow.win.restore();
@@ -2052,15 +1925,15 @@ import_electron10.app.on("second-instance", () => {
     indexWindow.win.focus();
   }
 });
-import_electron10.app.on("activate", () => {
-  const allWindows = import_electron10.BrowserWindow.getAllWindows();
+import_electron11.app.on("activate", () => {
+  const allWindows = import_electron11.BrowserWindow.getAllWindows();
   if (allWindows.length) {
     allWindows[0].focus();
   } else {
     indexWindow.show();
   }
 });
-import_electron10.app.on("before-quit", () => {
+import_electron11.app.on("before-quit", () => {
   statistic_default.poke("WillQuit.App", null);
   local_store_default.config.save();
 });
@@ -2084,8 +1957,8 @@ function SetUpProxy(config) {
   }
 }
 function registerGlobalShortcut(shortCuts) {
-  import_electron10.globalShortcut.unregisterAll();
-  import_electron10.globalShortcut.register(shortCuts.boss, () => {
+  import_electron11.globalShortcut.unregisterAll();
+  import_electron11.globalShortcut.register(shortCuts.boss, () => {
     let visible = indexWindow.isShow();
     if (visible) {
       indexWindow.hideFromScreen();
@@ -2093,12 +1966,12 @@ function registerGlobalShortcut(shortCuts) {
       indexWindow.showOnScreen();
     }
   });
-  import_electron10.globalShortcut.register(shortCuts.adds, () => {
+  import_electron11.globalShortcut.register(shortCuts.adds, () => {
     openNative(null, "addstock", null);
   });
   let ADJ_CONST = 5;
   if (shortCuts.addo) {
-    import_electron10.globalShortcut.register(shortCuts.mino, () => {
+    import_electron11.globalShortcut.register(shortCuts.mino, () => {
       let conf = local_store_default.config;
       conf.opa = conf.opa - ADJ_CONST;
       if (conf.opa < 0) {
@@ -2108,7 +1981,7 @@ function registerGlobalShortcut(shortCuts) {
     });
   }
   if (shortCuts.mino) {
-    import_electron10.globalShortcut.register(shortCuts.addo, () => {
+    import_electron11.globalShortcut.register(shortCuts.addo, () => {
       let conf = local_store_default.config;
       conf.opa = conf.opa + ADJ_CONST;
       if (conf.opa > 100) {
@@ -2118,12 +1991,12 @@ function registerGlobalShortcut(shortCuts) {
     });
   }
   if (shortCuts.preg) {
-    import_electron10.globalShortcut.register(shortCuts.preg, () => {
+    import_electron11.globalShortcut.register(shortCuts.preg, () => {
       indexWindow.win?.webContents.send("preg");
     });
   }
   if (shortCuts.nextg) {
-    import_electron10.globalShortcut.register(shortCuts.nextg, () => {
+    import_electron11.globalShortcut.register(shortCuts.nextg, () => {
       indexWindow.win?.webContents.send("nextg");
     });
   }
@@ -2168,7 +2041,7 @@ function openNative(_ipcEvent, winname, arg) {
         arg = arg + "&invite=" + InviteCode;
       }
     }
-    import_electron10.shell.openExternal(arg);
+    import_electron11.shell.openExternal(arg);
   } else if (winname == "invite") {
     window = new InviteWindow();
   } else if (winname == "chart") {
@@ -2201,11 +2074,11 @@ function openNative(_ipcEvent, winname, arg) {
 }
 function regiserIpcChannel() {
   WechatPlugin();
-  import_electron10.ipcMain.on("native::open", (_ipcEvent, winname, arg) => {
+  import_electron11.ipcMain.on("native::open", (_ipcEvent, winname, arg) => {
     openNative(_ipcEvent, winname, arg);
   });
-  import_electron10.ipcMain.on("window:size", async (ipcEvent, width, height) => {
-    let win = import_electron10.BrowserWindow.fromWebContents(ipcEvent.sender);
+  import_electron11.ipcMain.on("window:size", async (ipcEvent, width, height) => {
+    let win = import_electron11.BrowserWindow.fromWebContents(ipcEvent.sender);
     if (win == null) {
       return;
     }
@@ -2221,18 +2094,18 @@ function regiserIpcChannel() {
     bounds.height = height;
     win.setBounds(bounds);
   });
-  import_electron10.ipcMain.on("close-win", (ipcEvent) => {
-    let win = import_electron10.BrowserWindow.fromWebContents(ipcEvent.sender);
+  import_electron11.ipcMain.on("close-win", (ipcEvent) => {
+    let win = import_electron11.BrowserWindow.fromWebContents(ipcEvent.sender);
     win?.close();
   });
-  import_electron10.ipcMain.on("open-dev", (ipcEvent) => {
+  import_electron11.ipcMain.on("open-dev", (ipcEvent) => {
     ipcEvent.sender.openDevTools({ mode: "detach" });
   });
-  import_electron10.ipcMain.on("statistic", (ipcEvent, eventKey, args) => {
+  import_electron11.ipcMain.on("statistic", (ipcEvent, eventKey, args) => {
     statistic_default.poke(eventKey, args);
   });
-  import_electron10.ipcMain.removeHandler("api");
-  import_electron10.ipcMain.handle("api", async (ipcEvent, command, arg, arg2) => {
+  import_electron11.ipcMain.removeHandler("api");
+  import_electron11.ipcMain.handle("api", async (ipcEvent, command, arg, arg2) => {
     logger_default.logDebug("api: " + command + " - " + arg);
     if (command == "searchStock") {
       statistic_default.poke("Search", [arg]);
@@ -2280,7 +2153,7 @@ function regiserIpcChannel() {
     } else if (command == "uploadLogs") {
       return await logger_default.compressAndSend();
     } else if (command == "isAeroGlassEnabled") {
-      const sp = import_electron10.systemPreferences;
+      const sp = import_electron11.systemPreferences;
       return typeof sp.isAeroGlassEnabled === "function" ? sp.isAeroGlassEnabled() : false;
     } else if (command == "shortCut") {
       let newShortCuts = {};
@@ -2332,26 +2205,26 @@ function regiserIpcChannel() {
     } else if (command == "exit") {
       statistic_default.poke("ExitStill.App", null);
       setTimeout(() => {
-        import_electron10.app.quit();
+        import_electron11.app.quit();
       }, 600);
     } else if (command == "send_advice") {
       return await codffect_default.sendAdvice(arg);
     } else if (command == "configPath") {
       return local_store_default.getPath();
     } else if (command == "backupConfig") {
-      const src = import_path4.default.join(storage2.getDataPath(), "stock-monitor-config.json");
+      const src = import_path3.default.join(storage2.getDataPath(), "stock-monitor-config.json");
       const stamp = (0, import_moment2.default)().format("YYYYMMDD-HHmmss");
-      const result = await import_electron10.dialog.showSaveDialog({
+      const result = await import_electron11.dialog.showSaveDialog({
         title: "\u5907\u4EFD\u914D\u7F6E",
-        defaultPath: import_path4.default.join(import_electron10.app.getPath("desktop"), `stock-monitor-config-${stamp}.json`),
+        defaultPath: import_path3.default.join(import_electron11.app.getPath("desktop"), `stock-monitor-config-${stamp}.json`),
         filters: [{ name: "JSON \u6587\u4EF6", extensions: ["json"] }]
       });
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       try {
-        if (!import_fs2.default.existsSync(src)) {
-          import_fs2.default.writeFileSync(src, JSON.stringify(local_store_default.config, null, 2));
+        if (!import_fs.default.existsSync(src)) {
+          import_fs.default.writeFileSync(src, JSON.stringify(local_store_default.config, null, 2));
         }
-        import_fs2.default.copyFileSync(src, result.filePath);
+        import_fs.default.copyFileSync(src, result.filePath);
         logger_default.log("backupConfig -> " + result.filePath);
         return { ok: true, path: result.filePath };
       } catch (err) {
@@ -2359,7 +2232,7 @@ function regiserIpcChannel() {
         return { ok: false, error: String(err) };
       }
     } else if (command == "restoreConfig") {
-      const result = await import_electron10.dialog.showOpenDialog({
+      const result = await import_electron11.dialog.showOpenDialog({
         title: "\u6062\u590D\u914D\u7F6E",
         properties: ["openFile"],
         filters: [{ name: "JSON \u6587\u4EF6", extensions: ["json"] }]
@@ -2368,11 +2241,11 @@ function regiserIpcChannel() {
         return { ok: false, canceled: true };
       }
       try {
-        const data = JSON.parse(import_fs2.default.readFileSync(result.filePaths[0], "utf8"));
+        const data = JSON.parse(import_fs.default.readFileSync(result.filePaths[0], "utf8"));
         if (typeof data !== "object" || data === null) {
           return { ok: false, error: "\u6587\u4EF6\u5185\u5BB9\u4E0D\u662F\u6709\u6548\u7684\u914D\u7F6E" };
         }
-        const confirm = await import_electron10.dialog.showMessageBox({
+        const confirm = await import_electron11.dialog.showMessageBox({
           type: "warning",
           title: "\u6062\u590D\u914D\u7F6E",
           message: "\u6062\u590D\u5C06\u8986\u76D6\u5F53\u524D\u914D\u7F6E\u5E76\u81EA\u52A8\u91CD\u542F\u5E94\u7528\uFF0C\u786E\u5B9A\u7EE7\u7EED\uFF1F",
@@ -2381,16 +2254,16 @@ function regiserIpcChannel() {
           cancelId: 0
         });
         if (confirm.response !== 1) return { ok: false, canceled: true };
-        const dst = import_path4.default.join(storage2.getDataPath(), "stock-monitor-config.json");
+        const dst = import_path3.default.join(storage2.getDataPath(), "stock-monitor-config.json");
         try {
-          if (import_fs2.default.existsSync(dst)) import_fs2.default.copyFileSync(dst, `${dst}.bak-${Date.now()}`);
+          if (import_fs.default.existsSync(dst)) import_fs.default.copyFileSync(dst, `${dst}.bak-${Date.now()}`);
         } catch (backupErr) {
         }
-        import_fs2.default.writeFileSync(dst, JSON.stringify(data, null, 2), "utf8");
+        import_fs.default.writeFileSync(dst, JSON.stringify(data, null, 2), "utf8");
         logger_default.log("restoreConfig ok, relaunch");
         setTimeout(() => {
-          import_electron10.app.relaunch();
-          import_electron10.app.exit(0);
+          import_electron11.app.relaunch();
+          import_electron11.app.exit(0);
         }, 600);
         return { ok: true };
       } catch (err) {
@@ -2400,20 +2273,20 @@ function regiserIpcChannel() {
     } else if (command == "testProxy") {
       return codffect_default.testProxy(arg.proxyHost, arg.proxyPort);
     } else if (command == "exception") {
-      if (!import_electron10.app.isPackaged) {
+      if (!import_electron11.app.isPackaged) {
         return false;
       }
       return await codffect_default.sendException(arg);
     } else if (command == "gpuInfo") {
-      return import_electron10.app.getGPUFeatureStatus();
+      return import_electron11.app.getGPUFeatureStatus();
     } else if (command == "dayk") {
       return await StockApi_default.getDaykData(arg);
     } else if (command == "mk") {
       return await StockApi_default.getMkData(arg, arg2);
     }
   });
-  import_electron10.ipcMain.removeHandler("config");
-  import_electron10.ipcMain.handle("config", async (ipcEvent, command, arg) => {
+  import_electron11.ipcMain.removeHandler("config");
+  import_electron11.ipcMain.handle("config", async (ipcEvent, command, arg) => {
     logger_default.log("config: " + command + " - " + arg);
     if (command == "get") {
       return local_store_default.config;
@@ -2422,14 +2295,14 @@ function regiserIpcChannel() {
     } else if (command == "set_reload") {
       local_store_default.applyWith(arg);
       if (arg.openAtLogin == true) {
-        import_electron10.app.setLoginItemSettings({ openAtLogin: true });
+        import_electron11.app.setLoginItemSettings({ openAtLogin: true });
       } else if (arg.openAtLogin == false) {
-        import_electron10.app.setLoginItemSettings({ openAtLogin: false });
+        import_electron11.app.setLoginItemSettings({ openAtLogin: false });
       }
     } else if (command == "set_alias") {
       local_store_default.setAlias(arg.key, arg.alias);
     } else if (command == "getversion") {
-      return import_electron10.app.getVersion();
+      return import_electron11.app.getVersion();
     } else if (command == "set_cost") {
       local_store_default.setCost(arg.key, arg.price, arg.amount);
     } else if (command == "set_alert") {
@@ -2437,18 +2310,18 @@ function regiserIpcChannel() {
       local_store_default.setAlert(arg.key, arg);
     } else if (command == "set_shortcuts_switch") {
       if (arg.shortCutsSwitch == true) {
-        import_electron10.globalShortcut.unregisterAll();
+        import_electron11.globalShortcut.unregisterAll();
         let shortCuts = local_store_default.config.shortCuts;
         registerGlobalShortcut(shortCuts);
       } else if (arg.shortCutsSwitch == false) {
-        import_electron10.globalShortcut.unregisterAll();
+        import_electron11.globalShortcut.unregisterAll();
       }
       local_store_default.applyWith(arg);
     }
   });
-  import_electron10.ipcMain.handle("window", async (ipcEvent, command, arg) => {
+  import_electron11.ipcMain.handle("window", async (ipcEvent, command, arg) => {
     logger_default.logDebug("window: " + command + " - " + arg);
-    const win = import_electron10.BrowserWindow.fromWebContents(ipcEvent.sender);
+    const win = import_electron11.BrowserWindow.fromWebContents(ipcEvent.sender);
     if (win == null) {
       return null;
     }
@@ -2460,7 +2333,7 @@ function regiserIpcChannel() {
         indexWindow.hideType = 0;
       }
       let bounds = win.getBounds();
-      let sf = import_electron10.screen.getDisplayMatching(bounds).scaleFactor;
+      let sf = import_electron11.screen.getDisplayMatching(bounds).scaleFactor;
       if (sf !== 1 && sf !== 2 && sf !== 3) {
         bounds.x = arg.x;
         bounds.y = arg.y;
@@ -2501,11 +2374,16 @@ function regiserIpcChannel() {
 }
 var tray;
 function createTray() {
-  const assetsPath = import_electron10.app.isPackaged ? import_path4.default.join(process.resourcesPath, "build/icons") : "build/icons";
-  let ptoi = assetsPath + "/24x24.png";
+  const ptoi = import_electron11.app.isPackaged ? import_path3.default.join(process.resourcesPath, "logo.png") : import_path3.default.join(__dirname, "../renderer", "logo.png");
   logger_default.log("path icon:" + ptoi);
-  tray = new import_electron10.Tray(ptoi);
-  const contextMenu = import_electron10.Menu.buildFromTemplate([
+  try {
+    tray = new import_electron11.Tray(ptoi);
+  } catch (error) {
+    logger_default.log("Failed to create tray icon:" + error.message);
+    tray = null;
+  }
+  if (tray == null) return;
+  const contextMenu = import_electron11.Menu.buildFromTemplate([
     {
       label: "\u6253\u5F00\u8BBE\u7F6E\u9875\u9762",
       click: async function() {
@@ -2521,7 +2399,7 @@ function createTray() {
           message: "\u91CD\u7F6E\u8F6F\u4EF6\uFF1F\u91CD\u7F6E\u540E\u6240\u6709\u914D\u7F6E\u4F1A\u6062\u590D\u5230\u521D\u59CB\u72B6\u6001.",
           buttons: ["\u5426", "\u662F"]
         };
-        let index = await import_electron10.dialog.showMessageBox(options);
+        let index = await import_electron11.dialog.showMessageBox(options);
         if (index.response == 1) {
           local_store_default.restore();
           SetUpProxy(local_store_default.config);
@@ -2543,7 +2421,7 @@ function createTray() {
           message: "\u8BE5\u884C\u4E3A\u4F1A\u628A\u4F60\u9762\u677F\u653E\u5230\u5C4F\u5E55\u4E2D\u95F4\u5E76\u4E14\u663E\u793A\u51FA\u6765",
           buttons: ["\u5426", "\u662F"]
         };
-        let index = await import_electron10.dialog.showMessageBox(options);
+        let index = await import_electron11.dialog.showMessageBox(options);
         if (index.response == 1) {
           indexWindow.setToCenter();
           indexWindow.showOnScreen();
@@ -2559,7 +2437,7 @@ function createTray() {
           message: "\u8BE5\u884C\u4E3A\u4F1A\u628A\u4F60\u7684\u8C03\u8BD5\u65E5\u5FD7\u4E0A\u4F20\u7ED9\u5F00\u53D1\u8005\u5E2E\u52A9\u5206\u6790\u95EE\u9898\u3002",
           buttons: ["\u5426", "\u662F"]
         };
-        let index = await import_electron10.dialog.showMessageBox(options);
+        let index = await import_electron11.dialog.showMessageBox(options);
         if (index.response == 1) {
           await logger_default.compressAndSend();
         }
@@ -2574,7 +2452,7 @@ function createTray() {
         } else {
           statistic_default.poke("CF.OUT", null);
           setTimeout(() => {
-            import_electron10.app.quit();
+            import_electron11.app.quit();
           }, 700);
         }
       }
@@ -2586,7 +2464,7 @@ function createTray() {
     indexWindow.showIfOnScreenBorder();
     indexWindow.showOnScreen();
   });
-  import_electron10.Menu.setApplicationMenu(null);
+  import_electron11.Menu.setApplicationMenu(null);
 }
 local_store_default.on("onConfig", async (config, diffKeys) => {
   let syncData = false;
@@ -2618,7 +2496,7 @@ service_default.onEvent("alertPrice", async function(arg) {
     message: arg.text,
     buttons: ["\u77E5\u9053\u4E86", "\u4E0D\u518D\u63D0\u9192"]
   };
-  let index = await import_electron10.dialog.showMessageBox(options);
+  let index = await import_electron11.dialog.showMessageBox(options);
   if (index.response == 1) {
     local_store_default.setAlert(arg.key, { key: arg.key, at: arg.at, v: false });
   }

@@ -86,6 +86,7 @@ npm start                 # 启动 Electron（需先 build:main）
 - `dist/renderer/` 无 sourcemap，`.vue` 组件不可还原。可维护部分放在 `src/renderer/patches/`，冻结产物与完整补丁清单见 [src/renderer/patches/README.md](src/renderer/patches/README.md)。
 - `restore-sources.mjs` 只是历史引导工具，源码已在 `src/`，正常开发无需再运行；新 sourcemap 由 `build-main.mjs` 生成并直接指向 `src/`。
 - 构建策略与原始产物一致：esbuild 输出 CJS、`packages: external`，因此产物可直接被 `package.json` 的 `main` 加载，也能被 electron-builder 原样打包。
+- **启动流程同样曾是静默补丁**：sourcemap 里的 `whenReady()` 是在线版（按 `token` 决定先弹微信登录窗），且没有显式设置配置存储路径。离线版必须跳过登录窗、从 `userData` 重建配置单例、强制 `profiteTotal=true`；托盘图标要用 `logo.png`（打包后 `build/icons/` 不存在）；设备 ID 读取要容错。这些已回归 `src/main/index.ts` 与 `src/main/storage/local_store.ts`，`check:patches` 有对应的防回退校验。
 
 ## 🚀 打包
 
@@ -100,7 +101,18 @@ npm run build        # electron-builder，生成 Windows 安装包
 
 ## 💾 配置与数据
 
-自选股、成本价、分组、价格提醒、快捷键、主题等保存在 electron-json-storage 数据目录下的 `stock-monitor-config.json`。设置页的「备份配置」可导出到桌面，「恢复配置」会先留存当前配置再覆盖并自动重启。
+自选股、成本价、分组、价格提醒、快捷键、主题等保存在 electron-json-storage 数据目录下的 `stock-monitor-config.json`。实际路径是 **`%APPDATA%/Stock-Monitor/stock-monitor-config.json`**（userData 根目录），不是 `storage/` 子目录——启动时 `reloadFromUserData()` 会显式把 dataPath 指过去。设置页的「备份配置」可导出到桌面，「恢复配置」会先留存当前配置再覆盖并自动重启。
+
+## 🩺 启动与故障排查
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 进程还在，但没有主界面 | 旧产物按 `token` 走已被禁用的登录窗；或托盘图标 `build/icons/24x24.png` 不存在，抛错中断 `whenReady` | 用本仓库源码重新 `npm run build:main`。新版跳过登录窗、改用 `logo.png`，且所有非关键初始化由 `safeInit()` 兜底，主窗口一定最后创建 |
+| `REG.exe ... MachineGuid Access is denied` | `node-machine-id` 读注册表被组策略或沙箱拒绝，顶层 `new Config()` 崩溃 | `safeMachineId()` 已降级为本地随机 UUID；离线版不依赖云端设备标识 |
+| `npm start` 报 `BrowserWindow.prototype` undefined | 终端注入了 `ELECTRON_RUN_AS_NODE=1`，Electron 以纯 Node 模式启动 | `env -u ELECTRON_RUN_AS_NODE npm start`；双击 exe 不受影响 |
+| 窗口出现但没有自选股/行情 | 读到了 `userData/storage/` 下的空配置 | 新版启动时会重建配置单例；确认 `%APPDATA%/Stock-Monitor/stock-monitor-config.json` 存在 |
+
+`npm start` 在没有 Vite dev server 时会自动回退加载 `dist/renderer/index.html`，因此可直接本地运行已构建产物。
 
 ## 🔒 已知风险
 

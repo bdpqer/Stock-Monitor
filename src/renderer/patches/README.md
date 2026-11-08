@@ -18,9 +18,18 @@
 | 3 | `dist/renderer/index.e4b3f4eb.js` | `/setting/doctor` 路由名「网络诊断」→「备份配置」 | 注入脚本替换规则 |
 | 4 | `dist/renderer/doctor.63ab51ad.js` | 备份/恢复配置 UI（压缩后的 Vue render function） | **冻结产物**，无法源码化，仅校验 |
 | 5 | `dist/main/index.cjs` | `sortKeys` / `backupConfig` / `restoreConfig` | 已回归 `src/main/`，由 `build:main` 生成 |
+| 6 | 主进程启动流程 | 跳过登录窗、从 `userData` 重建配置、默认自选股、强制 `profiteTotal`、显示后立即刷新行情 | `src/main/index.ts` + `local_store.ts` |
+| 7 | 托盘图标 | `build/icons/24x24.png` → `logo.png`，`new Tray` 加 try/catch | `src/main/index.ts` |
+| 8 | 设备 ID | `machineIdSync` 读注册表失败时降级为随机 UUID | `src/main/storage/local_store.ts` |
+| 9 | 启动容错 | `safeInit()` 包裹全部非关键初始化，保证主窗口一定创建 | `src/main/index.ts` |
+| 10 | 页面加载 | 无 Vite dev server 时回退到 `dist/renderer/index.html` | `src/extensions/electron_extensions.ts` |
 
 补丁 2/3/4 对应的主进程实现在 `src/main/index.ts`，补丁 1 的服务端实现在
 `src/main/service/index.ts` 的 `sortKeys()`。
+
+补丁 6–10 是**启动流程补丁**：首次离线化时它们只存在于压缩产物里、没有
+sourcemap 记录，导致只还原源码就重建会退回「在线版启动流程」——表现为
+进程活着但看不到主界面。`check:patches` 对每一项都有防回退校验。
 
 ## 常用命令
 

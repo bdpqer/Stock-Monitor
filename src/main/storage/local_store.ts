@@ -1,10 +1,30 @@
 import EventEmitter from "events";
 import moment from "moment";
+import { app } from "electron";
+import { randomUUID } from "crypto";
 import { Sug } from "../api/StockApi";
 import logger from "../service/logger";
 
 const storage = require('electron-json-storage');
 const { machineIdSync } = require('node-machine-id')
+
+/**
+ * 设备标识读取。
+ *
+ * node-machine-id 会执行 `REG.exe QUERY ... MachineGuid`，在组策略受限、
+ * 沙箱或精简系统上会直接抛错（Access is denied）。原实现把它放在 Config
+ * 的字段初始化里，一旦失败，主进程在模块顶层就崩溃，被 uncaughtException
+ * 吞掉后表现为「进程还在、但没有主界面」。离线版不使用云端设备标识，
+ * 因此失败时退化为本地随机 UUID 即可。
+ */
+function safeMachineId(): string {
+    try {
+        return machineIdSync(true);
+    } catch (err) {
+        logger.log("machineIdSync unavailable, fallback to local uuid: " + err);
+        return 'offline-' + randomUUID();
+    }
+}
 
 const eventEmmiter = new EventEmitter()
 
@@ -13,7 +33,7 @@ export class Config {
     column: number[] = [0,1,2,3,4,9];
     keys: Sug[] = [];
     opa: number = 100;
-    uuid: string = machineIdSync(true);
+    uuid: string = safeMachineId();
     model: string = "nm";
     bounds: any = null;
     alias: any = {};
@@ -224,6 +244,21 @@ export default {
                 return false;
             }
         }
+    },
+    /**
+     * 离线版启动流程：app ready 后把存储目录切到 userData 并重建配置单例。
+     *
+     * 模块顶层读取发生在 app ready 之前，electron-json-storage 会使用默认的
+     * `userData/storage/` 子目录；而实际配置保存在 userData 根目录。若不重置，
+     * 会读到一份空配置（token 为空、无自选股、profiteTotal 为 false），
+     * 进而误入已被禁用的登录窗口、且主界面不显示行情。
+     */
+    reloadFromUserData(): Config {
+        storage.setDataPath(app.getPath('userData'));
+        appConfig = undefined;                       // 让 get config() 重新懒加载
+        const cfg = this.config;
+        oldConfig = JSON.parse(JSON.stringify(cfg));
+        return cfg;
     },
     restore(){
         this.applyWith(new Config());
