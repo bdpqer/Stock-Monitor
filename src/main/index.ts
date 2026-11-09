@@ -1,32 +1,51 @@
-import { app, BrowserWindow, ipcMain, IpcMainEvent, IpcMainInvokeEvent, shell, webContents, globalShortcut, dialog, Menu, Tray, screen, DownloadItem, systemPreferences } from 'electron'
-import { release } from 'os'
-import '../extensions/electron_extensions'
-import { AddStockWindow } from './pages/AddStockWindow'
-import { IndexWindow } from './pages/IndexWindow'
-import { LoginWindow } from './pages/LoginWindow'
-import { SettingWindow } from './pages/SettingWindow'
-import { VipWindow } from './pages/VipWindow'
-import { SetCostWindow } from './pages/SetCostWindow'
-import WechatPlugin from './plugins/wechat'
-import StockApi, { Sug } from './api/StockApi'
-import StockService from './service/index'
-import local_store, { Config } from './storage/local_store'
-import { AppWindow } from './base/app_window'
-import path from 'path';
-import fs from 'fs';
-import moment from 'moment';
-const storage = require('electron-json-storage')
-import codffect from './api/codffect'
-import statistic from './service/statistic'
-import logger from './service/logger'
-import system from './service/system'
-import eldownload from 'electron-dl'
-import { InviteWindow } from './pages/InviteWindow'
-import { ChartWindow } from './pages/ChartWindow'
-import { AdviceWindow } from './pages/AdviceWindow'
+/**
+ * 主进程入口文件。
+ *
+ * 这是整个 Electron 应用的「大脑」，负责：
+ *   1. 应用生命周期管理（单实例锁、whenReady、before-quit 等）
+ *   2. 各子窗口（主面板/添加股票/设置/图表/成本/登录等）的创建与单例复用
+ *   3. 注册三条 IPC 通道：`api`（业务命令）、`config`（配置读写）、`window`（窗口控制）
+ *   4. 系统托盘、全局快捷键（老板键）、代理设置、开机自启
+ *   5. 行情价格提醒的弹窗提示、云端数据同步（离线版已禁用）
+ *
+ * 本文件是「离线个人维护版」改造最集中的地方：云端登录/自动更新/统计上报
+ * 全部被禁用或 stub 化，启动流程被重写为「跳过登录窗、直接显示主窗口」。
+ *
+ * 与渲染层的关系：渲染层（Vue）通过 `ipcRenderer.invoke('api', command, ...)`
+ * 或 `ipcRenderer.send('native::open', winname, arg)` 来驱动这里的逻辑。
+ */
+import { app, BrowserWindow, ipcMain, IpcMainEvent, IpcMainInvokeEvent, shell, webContents, globalShortcut, dialog, Menu, Tray, screen, DownloadItem, systemPreferences } from 'electron' // 引入 Electron 模块
+import { release } from 'os'  // 引入操作系统模块，用于获取系统版本
+import '../extensions/electron_extensions' // 引入自定义扩展模块
+import { AddStockWindow } from './pages/AddStockWindow' // 引入添加股票弹窗窗口
+import { IndexWindow } from './pages/IndexWindow' // 引入主窗口窗口
+import { LoginWindow } from './pages/LoginWindow' // 引入登录窗口窗口
+import { SettingWindow } from './pages/SettingWindow' // 引入设置窗口窗口
+import { VipWindow } from './pages/VipWindow' // 引入会员窗口窗口
+import { SetCostWindow } from './pages/SetCostWindow' // 引入成本窗口窗口
+import WechatPlugin from './plugins/wechat' // 引入微信插件
+import StockApi, { Sug } from './api/StockApi' // 引入股票 API 模块
+import StockService from './service/index'  // 引入股票服务模块
+import local_store, { Config } from './storage/local_store' // 引入本地存储模块
+import { AppWindow } from './base/app_window' // 引入基础窗口模块
+import path from 'path'; // 引入路径模块
+import fs from 'fs'; // 引入文件系统模块
+import moment from 'moment'; // 用于时间格式化
+const storage = require('electron-json-storage') // 引入 JSON 存储模块
+import codffect from './api/codffect' // 引入云端 API 模块
+import statistic from './service/statistic' // 引入统计服务模块
+import logger from './service/logger' // 引入日志服务模块
+import system from './service/system' // 引入系统服务模块
+import eldownload from 'electron-dl' // 引入下载模块
+import { InviteWindow } from './pages/InviteWindow' // 引入邀请窗口窗口
+import { ChartWindow } from './pages/ChartWindow' // 引入图表窗口窗口
+import { AdviceWindow } from './pages/AdviceWindow' // 引入提醒窗口窗口
 
+// 用于「同一支股票同时触发多条提醒」的防抖：key -> true，避免弹窗重复
 const alertDialog:any = {};
 
+// 全局兜底捕获未处理异常，避免进程因渲染层/第三方库抛错直接崩溃；
+// 打包环境（isPackaged）下会把异常上报（离线版 codffect.sendException 已 stub 为空，实际只是写日志）
 process.on('uncaughtException', function (error) {
   let exceptionStr = "uncaughtException:" + error + "|||" + error.stack;
   logger.log(exceptionStr)
@@ -36,6 +55,14 @@ process.on('uncaughtException', function (error) {
   }
 })
 
+/**
+ * 拉取云端动态配置并检查自动更新（在线版功能）。
+ *
+ * 离线版中 codffect.getConfig 已 stub 为 return null，因此本函数从未真正执行；
+ * 且 whenReady 里对它的调用也被注释掉了。保留此实现只是为了与在线版
+ * 逻辑对齐、便于对照源码。流程：取动态配置 -> 10 秒后检查 autoUp ->
+ * 下载新安装包（zip 解压 / mac 直接 dmg）-> 弹升级提示。
+ */
 async function checkDynConfigs(){
   let data = await codffect.getConfig(app.getVersion())
   
@@ -118,17 +145,29 @@ async function checkDynConfigs(){
   }
 }
 
+/**
+ * 新用户登录后判断是否需要弹出「邀请码」窗口（在线版拉新功能）。
+ * 离线版不登录，基本不会走到这里。
+ */
 function checkInviteCode(data:any){
   if(data==null){
     return;
   }
 
+  // 属于新用户且尚未绑定邀请人时，弹邀请码窗口
   if(data.NewUser&&data.InviteUserID==0){
     //弹起邀请码弹窗
     openNative(null,"invite",null);
   }
 }
 
+/**
+ * 单向（或首次）从云端同步配置（在线版功能）。
+ *
+ * 逻辑：本地有 token 才继续 -> 取云端 syncData -> 比较 synUpdateTime 与云端
+ * UpdatedTime，云端更新则用 parse(data.Data) 覆盖本地动态配置。
+ * 离线版 codffect.syncData 已 stub 为 return null，函数第一行 token 判空即返回。
+ */
 async function checkSyncData(){
   if(local_store.config.token==null||local_store.config.token==""){
     return;
@@ -295,6 +334,12 @@ app.on("before-quit", () =>{
   local_store.config.save();
 })
 
+/**
+ * 会员剩余时长倒计时（在线版功能）。
+ *
+ * 每 60 秒把 countDownTimeSec 减 10 秒（模拟/统计用途），
+ * 仅在会员窗口未打开时执行。离线版 isVip 恒真、无时长概念，实际无影响。
+ */
 function registerCountDown() {
   setInterval(() => {
     if (!AppWindow.isOpened("vip")) {
@@ -307,6 +352,10 @@ function registerCountDown() {
   }, 60 * 1000)
 }
 
+/**
+ * 根据配置启用/关闭 HTTP(S) 代理。
+ * proxySwitch 为 false 时清空代理，否则用 host/port/用户名/密码构建 HttpsProxyAgent。
+ */
 function SetUpProxy(config:Config){
     let ps = config.proxySwitch;
     if(ps==false){
@@ -333,13 +382,19 @@ function registerGlobalShortcut(shortCuts:any) {
     }
   })
 
+  // 快捷键「adds」：打开添加股票窗口
   globalShortcut.register(shortCuts.adds,()=>{
     openNative(null,"addstock",null);
   })
 
+  // 透明度每次调整的步长（百分比）
   let ADJ_CONST = 5;
+  // 注意：此处 addo/mino 的判断条件与注册内容「交叉颠倒」——
+  // addo 分支里注册的是 mino 键并做减法（变透明），mino 分支里注册 addo 键并做加法。
+  // 这是上游实现遗留的命名混乱，实际行为以注册到同一个按键的增减为准。
   if(shortCuts.addo){
     globalShortcut.register(shortCuts.mino,()=>{
+      // 降低透明度（opa 减小 → 更透明），下限 0
       let conf = local_store.config;
       conf.opa = conf.opa - ADJ_CONST;
       if (conf.opa < 0) {
@@ -350,6 +405,7 @@ function registerGlobalShortcut(shortCuts:any) {
   }
   if(shortCuts.mino){
     globalShortcut.register(shortCuts.addo,()=>{
+      // 提高透明度（opa 增大 → 更不透明），上限 100
       let conf = local_store.config;
       conf.opa = conf.opa + ADJ_CONST;
       if (conf.opa > 100) {
@@ -359,6 +415,7 @@ function registerGlobalShortcut(shortCuts:any) {
     });
   }
 
+  // 分组切换快捷键：preg=上一个分组，nextg=下一个分组（由渲染层处理按键事件）
   if(shortCuts.preg){
     globalShortcut.register(shortCuts.preg,()=>{
       indexWindow.win?.webContents.send("preg")
@@ -373,6 +430,17 @@ function registerGlobalShortcut(shortCuts:any) {
   
 }
 
+/**
+ * 统一的「本地窗口」创建/复用入口。
+ *
+ * 渲染层通过 `ipcRenderer.send('native::open', winname, arg)` 调用这里，
+ * winname 决定打开哪个窗口：login / setting / vip / addstock / help / cost /
+ * ext / invite / chart / advice。
+ *
+ * 关键约定：除 cost、chart 等「带参数可复用」的窗口外，其余窗口通过
+ * AppWindow.winMap 做单例管理——已打开则 focus，否则 new + 记录 + show。
+ * arg 对不同窗口含义不同：成本/图表窗口传的是股票 key。
+ */
 function openNative(_ipcEvent:any, winname: string, arg: any){
     logger.logDebug("window:size: " + winname + " - " + arg);
 
@@ -409,6 +477,8 @@ function openNative(_ipcEvent:any, winname: string, arg: any){
         console.log(e)
       }
     } else if (winname == "ext"){
+      // 「ext」= 用系统默认浏览器打开外部链接；如有邀请码会拼到 URL 上
+      // 注意：此处没有做域名白名单校验，存在打开任意外部 URL 的风险（README 已记录）
       if(arg.startsWith("https://")||arg.startsWith("http://")){
         let InviteCode = local_store.config.InviteCode;
         if(InviteCode!=null&&InviteCode!=""){
@@ -837,6 +907,12 @@ function regiserIpcChannel() {
 }
 
 var tray: any;
+/**
+ * 创建系统托盘图标与右键菜单。
+ *
+ * 菜单项：打开设置、重置软件、模式切换、面板居中、上传日志、退出。
+ * 托盘是「可选能力」：图标路径不存在时只记录日志并返回，不影响主窗口。
+ */
 function createTray() {
   // 离线版：打包时 resources 下只有 logo.png（见 package.json extraResources），
   // 在线版的 build/icons/24x24.png 并不存在，new Tray 会抛错并中断整个启动流程。
@@ -941,6 +1017,11 @@ function createTray() {
   Menu.setApplicationMenu(null)
 }
 
+/**
+ * 全局配置变更监听：某些关键字段（keys/cost/alias/alertInfos/groups）变化时
+ * 触发一次云端同步（在线版，离线版 codffect.syncData 已 stub）；代理开关
+ * 变化时立即重新应用代理设置。
+ */
 local_store.on('onConfig', async (config: Config,diffKeys:any)=>{
   let syncData = false;
   for(let i in diffKeys){
@@ -962,6 +1043,11 @@ local_store.on('onConfig', async (config: Config,diffKeys:any)=>{
   }
 })
 
+/**
+ * 价格提醒事件处理：stock 服务检测到价格「穿越」提醒线时发出 alertPrice，
+ * 这里用原生对话框弹出提示；用户点「不再提醒」则把对应开关置 false。
+ * alertDialog 防抖避免同一支股票短时间内重复弹窗。
+ */
 StockService.onEvent("alertPrice",async function(arg:any){
   if(alertDialog[arg.key]){
     logger.log(arg.key+" already alert.")

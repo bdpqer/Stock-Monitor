@@ -56,7 +56,8 @@ Stock-Monitor/
 │   ├── restore-sources.mjs      # 一次性：从原始 sourcemap 引导恢复源码
 │   ├── build-main.mjs           # esbuild 重建主进程 / preload 产物
 │   ├── inject-renderer.mjs      # 幂等注入渲染层补丁，--check 可校验
-│   └── smoke-test.mjs           # 纯 Node 加载冒烟测试
+│   ├── smoke-test.mjs           # 纯 Node 加载冒烟测试
+│   └── build-release.mjs        # 一键：重建 → 打包 → 对齐 → 上传 Release → 校验
 ├── dist/                        # 构建产物：main / preload / renderer
 ├── icons/                       # 各尺寸应用图标
 ├── dist-electron/               # 安装包输出（被 .gitignore 忽略）
@@ -88,7 +89,38 @@ npm start                 # 启动 Electron（需先 build:main）
 - 构建策略与原始产物一致：esbuild 输出 CJS、`packages: external`，因此产物可直接被 `package.json` 的 `main` 加载，也能被 electron-builder 原样打包。
 - **启动流程同样曾是静默补丁**：sourcemap 里的 `whenReady()` 是在线版（按 `token` 决定先弹微信登录窗），且没有显式设置配置存储路径。离线版必须跳过登录窗、从 `userData` 重建配置单例、强制 `profiteTotal=true`；托盘图标要用 `logo.png`（打包后 `build/icons/` 不存在）；设备 ID 读取要容错。这些已回归 `src/main/index.ts` 与 `src/main/storage/local_store.ts`，`check:patches` 有对应的防回退校验。
 
-## 🚀 打包
+## 🚀 打包与发布
+
+### 一键发布（推荐）
+
+```bash
+npm run build:release
+```
+
+一条命令跑完整个发布链，不再需要手工对齐 `latest.yml` 或拼 `gh release upload`：
+
+| 阶段 | 动作 |
+|---|---|
+| ① 重建 | `build:main` + `build:renderer`，再跑 `typecheck` / `check:patches` / `smoke` |
+| ② 打包 | electron-builder 输出到**带时间戳的全新目录** `dist-electron/build-<时间>`，避开后台扫描器锁住旧 `app.asar` 导致 `EnsureEmptyDir` 失败；撞锁会自动再换一个目录重试 |
+| ③ 对齐 | 按本地实际文件名推导 GitHub 附件名（空格 → 点号），改写 `latest.yml` 的 `url` / `path`，并用新 NSIS 包实测值重写 `size` / `sha512`；4 个附件归位到 `dist-electron/` 顶层；顺带校验 `app.asar` 内的离线补丁 |
+| ④ 发布 | `gh release upload v1.0.0 ... --clobber` + 更新 Release notes |
+| ⑤ 校验 | 从远端读回 4 个附件的 `size` / `sha256` 逐项比对，下载远端 `latest.yml` 与本地比对 |
+| ⑥ 清理 | 立刻删除临时输出目录（含 `win-unpacked/`），赶在后台扫描启动前释放 300–440 MB，也避免下次打包再撞锁。若运行环境限制批量删除，会给出警告并保留目录，稍后手工删除即可 |
+
+常用参数（经 `npm run build:release -- <参数>` 传入）：
+
+```bash
+npm run build:release -- --no-upload       # 只打包 + 对齐，不碰 GitHub（本地验证用）
+npm run build:release -- --no-rebuild      # 跳过重建 dist/，保留当前产物
+npm run build:release -- --keep-unpacked   # 保留免安装目录 win-unpacked/
+npm run build:release -- --tag v1.0.1      # 指定 Release tag，默认 v1.0.0
+npm run build:release -- --repo owner/repo # 指定仓库，默认 bdpqer/Stock-Monitor
+```
+
+上传模式需要 `gh` CLI 已登录且有仓库写权限；`--no-upload` 不需要。脚本默认会重新生成 `dist/main/index.cjs` 等产物，若手工改过 `dist/` 请加 `--no-rebuild`。
+
+### 仅打包
 
 ```bash
 npm run build        # electron-builder，生成 Windows 安装包
@@ -97,7 +129,8 @@ npm run build        # electron-builder，生成 Windows 安装包
 - 输出目录 `dist-electron/`：`Stock-monitor Setup 1.0.0.exe`（NSIS 安装包）、`Stock-monitor 1.0.0.exe`（便携版）、`win-unpacked/`、`latest.yml`、`.blockmap`。
 - 首次打包需下载 Electron 40.1.0 win-x64 二进制与 NSIS 工具链；建议预留 2 GB 以上磁盘空间。
 - 安装包单文件约 117 MB，超过 GitHub 单文件 100 MB 限制，**不纳入 Git**，通过 Release 附件分发。
-- `latest.yml` 中的文件名为 `Stock-monitor-Setup-1.0.0.exe`（短横线），与磁盘上的带空格文件名不同；GitHub 又会把附件名空格规范化为点号，作为更新源使用时需按实际附件名对齐。
+- `latest.yml` 生成时用的是短横线名 `Stock-monitor-Setup-1.0.0.exe`，而 GitHub 会把附件名空格规范化为点号 `Stock-monitor.Setup.1.0.0.exe`。**直接 `npm run build` 后必须手工对齐**，用 `build:release` 则全自动完成。
+- 每次打包生成的 `app.asar` 会被 Windows Defender / Windows Search / Everything / IDE watcher 异步打开并持有句柄，导致下次打包删除 `win-unpacked/` 失败。清空 `dist-electron/` 或换新输出目录即可绕开；`build:release` 已内置后者。
 
 ## 💾 配置与数据
 

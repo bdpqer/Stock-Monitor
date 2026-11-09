@@ -63,57 +63,97 @@ function safeMachineId() {
 var eventEmmiter = new import_events.default();
 var Config = class {
   constructor() {
+    // ===== 显示 / 表格 =====
     this.fontSize = 14;
+    // 字体大小（px）
     this.column = [0, 1, 2, 3, 4, 9];
-    this.keys = [];
+    // 表格要显示的列的索引（对应 data_type 里的 value）
     this.opa = 100;
-    this.uuid = safeMachineId();
+    // 窗口不透明度（0~100）
     this.model = "nm";
-    this.bounds = null;
-    this.alias = {};
+    // 界面模式：nm=正常，sm=精简（渲染层切换）
     this.themeMode = "classic";
+    // 主题：classic（红涨绿跌）/ 自定义
+    // 背景/字体色（新版 RGB + alpha 分离；old config 的 backColor/textColor 为旧格式）
+    this.backColorNew = "#FFFFFF";
+    this.backAlpha = 255;
+    this.textColorNew = "#000000";
+    this.textAlpha = 255;
+    this.backColor = "rgba(255,255,255,255)";
+    // 旧版背景色（兼容保留）
+    this.textColor = "rgba(90,90,90,255)";
+    // 旧版字体色（兼容保留）
+    // ===== 窗口 =====
+    this.bounds = null;
+    // 主面板窗口位置/尺寸（null 表示未记录，用默认）
+    this.chartBounds = null;
+    // 图表窗口位置
+    this.hideSwitch = true;
+    // 是否启用「贴边自动隐藏」
+    this.windowTransparent = false;
+    // 是否透明窗口
+    this.openAtLogin = true;
+    // 是否开机自启
+    // ===== 自选股数据 =====
+    this.keys = [];
+    // 自选股列表（Sug：含 code/marketCode/key/name 等）
+    this.alias = {};
+    // 股票别名：key -> 别名
+    this.cost = {};
+    // 成本：key -> {price, amount, date}
+    this.groups = [];
+    // 分组列表（字符串数组）
+    this.groupsSwitch = true;
+    // 是否启用分组栏
+    // ===== 提醒 =====
+    this.alertInfos = {};
+    // 价格提醒：key -> {downalert_switch/price/text, upalert_*...}
+    this.alertsKey = {};
+    // 已读提醒标记：key -> true（渲染层用）
+    // ===== 快捷键 =====
+    this.shortCutsSwitch = true;
+    // 是否启用全局快捷键
+    this.shortCuts = { "boss": "Alt+`", "adds": "Ctrl+t", "addo": "Ctrl+]", "mino": "Ctrl+[" };
+    // 老板键/添加/加减透明度/分组切换
+    // ===== 盈亏 =====
+    this.profitMode = "ap";
+    // 盈亏显示模式：ap=金额+百分比，a=仅金额，其他=仅百分比
+    this.profiteTotal = false;
+    // 是否显示「合计/当日」汇总（离线版强制 true）
+    this.freqWhenHide = null;
+    // 面板隐藏时的轮询间隔（秒），null 用默认 15s
+    // ===== 账号（离线版基本弃用）=====
+    this.uuid = safeMachineId();
+    // 设备唯一标识（离线版退化为本地 UUID）
     this.token = null;
+    // 登录 token
     this.nickName = "";
     this.avatar = null;
     this.validTime = null;
+    // 会员有效期
     this.dueTo = null;
     this.NewUser = true;
     this.InviteUserID = 0;
     this.clickPromote = false;
     this.InviteCode = null;
-    this.cost = {};
     this.countDownTimeSec = 86400;
-    //old config
-    this.backColor = "rgba(255,255,255,255)";
-    this.textColor = "rgba(90,90,90,255)";
-    this.hideSwitch = true;
+    // 会员倒计时（秒，在线版存档）
+    // ===== 升级 / 云端（在线版弃用）=====
     this.dynamicConfig = {};
+    // 云端下发的动态配置
     this.synUpdateTime = null;
-    this.alertsKey = {};
-    this.shortCutsSwitch = true;
-    this.shortCuts = { "boss": "Alt+`", "adds": "Ctrl+t", "addo": "Ctrl+]", "mino": "Ctrl+[" };
+    // 上次云端同步时间
     this.skipInstall = "";
+    // 用户选择「跳过此版本」的版本号
     this.preparedInstall = {};
-    this.profitMode = "ap";
-    this.chartBounds = null;
-    //proxy
+    // 已下载待安装的升级包信息
+    // ===== 代理 =====
     this.proxySwitch = false;
-    this.alertInfos = {};
-    this.windowTransparent = false;
-    this.openAtLogin = true;
-    this.freqWhenHide = null;
-    this.profiteTotal = false;
-    this.groups = [];
-    this.groupsSwitch = true;
-    //debug
+    // false 或 {proxyHost,proxyPort,proxyUserName,proxyPassWord}
+    // ===== 调试 =====
     this.debugSwitch = false;
-    //背景
-    this.backColorNew = "#FFFFFF";
-    this.backAlpha = 255;
-    //字体
-    this.textColorNew = "#000000";
-    this.textAlpha = 255;
   }
+  // 是否开启 debug 日志（logger.logDebug 依据此开关）
   /**
    * 是否为Vip
    * 离线版：会员校验本地恒真，避免依赖云端账号体系与有效期字段。
@@ -169,6 +209,11 @@ var Config = class {
   setAlias(code, name) {
     this.alias[code] = name;
   }
+  /**
+   * 设置某支股票的成本价与持仓数量（key 为股票 marketCode+code）。
+   * price/amount 允许为 null：为 null 时不更新该项，仅更新传入的那一项；
+   * 同时记录「今天」为成本基准日，用于当日盈亏计算（见 stock.ts processData）。
+   */
   setCost(key, price, amount) {
     let old = this.cost[key];
     let now = /* @__PURE__ */ new Date();
@@ -186,6 +231,12 @@ var Config = class {
       this.cost[key] = old;
     }
   }
+  /**
+   * 设置某支股票的价格提醒。
+   * v 结构：{ key, at: 提醒类型(downalert_switch/upalert_switch), v: 值/开关 }。
+   * v.v 为空串或 false 表示「关闭该提醒」，从 alertInfos[key] 里删掉对应类型；
+   * 否则把 v.v 写入该类型。
+   */
   setAlert(key, v) {
     let ai = this.alertInfos[key];
     if (!ai) {
@@ -208,7 +259,10 @@ var Config = class {
     return this;
   }
   /**
-   * 保存到磁盘
+   * 保存到磁盘。
+   * 通过与上次快照 oldConfig 逐字段 JSON 对比，得到本次「变化了哪些 key」（diffKeys），
+   * 然后写盘，并通过 onConfig 事件把这些变化广播给所有监听者，
+   * 让主进程/渲染层只针对变化字段做增量响应（而非全量重刷）。
    */
   save() {
     const newConfig = appConfig;
@@ -234,9 +288,15 @@ var Config = class {
 var oldConfig = storage.getSync("stock-monitor-config") ?? {};
 var appConfig;
 var local_store_default = {
+  /** 获取 electron-json-storage 的数据目录路径 */
   getPath() {
     return storage.getDataPath();
   },
+  /**
+   * 判断「首次启动后 10 分钟内快速退出」。
+   * 用于托盘菜单「退出」时的分流：快速退出 → 引导到反馈窗口（advice），
+   * 正常退出 → 直接退出。通过 firstLaunch 时间戳与当前时间差判断。
+   */
   checkFirstLaunchAndQuickExit() {
     let fl = storage.getSync("firstLaunch");
     if (fl.time == void 0 || fl.time == null) {
@@ -268,10 +328,15 @@ var local_store_default = {
     oldConfig = JSON.parse(JSON.stringify(cfg));
     return cfg;
   },
+  /** 恢复出厂配置：用全新的默认 Config 覆盖当前所有配置 */
   restore() {
     this.applyWith(new Config());
   },
-  //保存配置
+  /**
+   * 「读-改-存」的原子编辑接口：fn 接收配置单例并就地修改。
+   * 只要 fn 返回的不是 false，就自动触发一次 save()。
+   * 大部分 setXxx/applyWith 都是它的薄封装。
+   */
   editWith(fn) {
     let ret = fn(this.config);
     if (ret != false) {
@@ -294,6 +359,11 @@ var local_store_default = {
   get isVip() {
     return this.config.isVip();
   },
+  /**
+   * 由 opa（0~100）换算成 Electron 窗口 setOpacity 需要的 alpha（0.05~1.0）。
+   * 映射规则：opa=0 → 0.05，opa=100 → 1.0，中间线性。
+   * 之所以不直接用 opa/100，是为了让「最透明」时仍保留 0.05 不至于完全不可见。
+   */
   get alpha() {
     return this.config.opa * 0.95 / 100 + 0.05;
   },
@@ -325,6 +395,13 @@ var local_store_default = {
   removeListener(event, listener) {
     eventEmmiter.removeListener(event, listener);
   },
+  /**
+   * 配置单例的懒加载 getter。
+   * 首次访问时：用默认字段 + storage 里已持久化的配置合并出 appConfig 单例；
+   * 之后一直返回同一实例（内存态），修改后靠 save() 写盘。
+   * 这里还做了「升级用户」的兼容：旧配置可能没有 preg/nextg 两个分组切换
+   * 快捷键，此处补上默认值，避免 registerGlobalShortcut 时未定义。
+   */
   get config() {
     if (appConfig == null) {
       appConfig = new Config().applyWith(storage.getSync("stock-monitor-config"));
@@ -349,23 +426,40 @@ var datestr = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getD
 import_electron_log.default.transports.file.fileName = datestr + ".log";
 console.log("logger Path:" + import_electron_log.default.transports.file.getFile().path);
 var logger_default = {
+  /**
+   * 调试日志：仅当本地配置 debugSwitch 为 true 时才输出，避免默认情况刷屏。
+   * @param msg 日志内容（任意类型，最终交给 log() 处理）
+   */
   logDebug(msg) {
     if (local_store_default.config.debugSwitch) {
       this.log(msg);
     }
   },
+  /**
+   * 通用日志：对象先 JSON 序列化再打印，统一加 [Logger] 前缀，方便在控制台区分来源。
+   * @param msg 日志内容（对象会被序列化，字符串/数字直接输出）
+   */
   log(msg) {
     if (typeof msg === "object" && msg !== null) {
       msg = JSON.stringify(msg);
     }
     console.log("[Logger]", msg);
   },
+  /**
+   * 打开日志所在目录：离线版不写日志文件，故无目录可打开，恒返回 null。
+   */
   openLogDir() {
     return null;
   },
+  /**
+   * 获取日志文件路径：离线版恒返回 null。
+   */
   getLogPath() {
     return null;
   },
+  /**
+   * 压缩并上传日志：日志上传已禁用，恒返回 null。
+   */
   async compressAndSend() {
     return null;
   }
@@ -373,6 +467,14 @@ var logger_default = {
 
 // src/main/service/statistic.ts
 var statistic_default = {
+  /**
+   * 埋点上报（离线版空实现）。
+   * 主进程各处通过 statistic.poke(eventKey, params) 记录用户行为；离线版函数体为空，
+   * 不真正上报，也不会产生任何网络请求或额外开销。
+   * @param eventKey 事件标识（字符串）
+   * @param params   事件附加参数（键值对）
+   * @returns 无返回值
+   */
   poke(eventKey, params) {
   }
 };
@@ -382,16 +484,31 @@ var import_electron4 = require("electron");
 var AppWindow = class _AppWindow {
   constructor() {
     this.winName = null;
+    ///窗口显示（show）完成后的回调，由子类按需赋值
     this.didShowCallBack = null;
-    ///窗口属性
+    ///窗口属性：当前窗口对应的 Electron BrowserWindow 实例
     this.win = null;
   }
   static {
+    /**
+     * 窗口单例注册表（静态）：key 为窗口标识 tag（字符串），value 为对应的 AppWindow 实例。
+     * 用于跨窗口判断「某类窗口是否已打开」，实现单例管理。
+     */
     this.winMap = {};
   }
+  /**
+   * 注册窗口实例到单例表。
+   * @param tag 窗口标识，作为 winMap 的 key
+   * @param window 已创建的窗口实例
+   */
   static addWinMap(tag, window) {
     this.winMap[tag] = window;
   }
+  /**
+   * 判断指定 tag 的窗口是否已经打开（存在于单例表中）。
+   * @param tag 窗口标识
+   * @returns 已打开返回 true，否则返回 false
+   */
   static isOpened(tag) {
     if (this.winMap[tag]) {
       return true;
@@ -399,12 +516,20 @@ var AppWindow = class _AppWindow {
       return false;
     }
   }
+  ///设置窗口名（用于统计埋点、日志）
   setWinName(winName) {
     this.winName = winName;
   }
+  ///获取窗口名
   getWinName() {
     return this.winName;
   }
+  /**
+   * 将窗口显示到屏幕（唤醒显示）。
+   * why：先 setOpacity(0) 再 show，是为了规避 Electron 在窗口透明(transparent=true)
+   * 场景下的 bug——直接 show 会闪一下白屏，因此先以 0 透明度显示，再延迟恢复目标透明度。
+   * 延迟时长 1000/50 = 20ms（约一帧）。
+   */
   showOnScreen() {
     logger_default.log("showOnScreen");
     this.win?.setOpacity(0);
@@ -416,16 +541,26 @@ var AppWindow = class _AppWindow {
       this.didShowCallBack();
     }
   }
+  /**
+   * 将窗口从屏幕隐藏（贴边隐藏用）。
+   */
   hideFromScreen() {
     logger_default.log("hideFromScreen");
     this.win?.hide();
   }
+  /**
+   * 判断窗口当前是否可见。
+   * @returns 可见返回 true，否则 false（窗口尚未创建时返回 undefined）
+   */
   isShow() {
     return this.win?.isVisible();
   }
   /**
-   * 为了解决不同分辨率setposition，窗口大小会变化
-   * 
+   * 设置窗口位置（带分辨率缩放适配）。
+   * why：在不同显示器缩放比例(scaleFactor)下直接 setPosition 会导致窗口实际尺寸发生
+   * 偏移/变化，因此这里针对非整数缩放系数做额外的 bounds 校正。
+   * @param x 目标逻辑横坐标
+   * @param y 目标逻辑纵坐标
    */
   setPosition(x, y) {
     let bounds = this.win?.getBounds();
@@ -447,14 +582,19 @@ var AppWindow = class _AppWindow {
     }
   }
   /**
-  * 显示
+  * 显示窗口：确保窗口已创建后 show，并上报「窗口展示」埋点统计。
+  * @param parent 父窗口（可为 null）
   */
   show(parent = null) {
     this.createWindow(parent);
     statistic_default.poke("WindowShow", { name: this.winName });
   }
   /**
-   * 创建窗口
+   * 创建窗口：核心生命周期入口。
+   * why：若 this.win 已存在则直接返回，保证「单例」——不会重复创建同一窗口。
+   * 创建完成后立即绑定 ready-to-show / move / blur / resize / close 等事件，
+   * 并转发到对应子类钩子（onWindowCreated / onWindowBoundsChanged / onWindowBlur / onWindowClosed）。
+   * @param parent 父窗口
    */
   createWindow(parent) {
     if (this.win) {
@@ -462,17 +602,28 @@ var AppWindow = class _AppWindow {
     }
     var options = {
       useContentSize: true,
+      // width/height 按内容区尺寸计算
       show: false,
+      // 先不显示，等 ready-to-show 后再显示
       resizable: false,
+      // 默认不可缩放
       parent,
+      // 父窗口
       movable: true,
+      // 可移动
       minimizable: false,
+      // 不可最小化
       maximizable: false,
+      // 不可最大化
       webPreferences: {
         preload: (0, import_path2.join)(__dirname, "../preload/index.cjs"),
+        // 预加载脚本，注入渲染层桥接
         nodeIntegration: true,
+        // 允许渲染层直接使用 Node
         contextIsolation: false,
+        // 关闭上下文隔离，便于渲染层直接访问主进程暴露的对象
         devTools: true
+        // 允许打开开发者工具
       }
     };
     import_electron3.Menu.setApplicationMenu(null);
@@ -502,19 +653,19 @@ var AppWindow = class _AppWindow {
     });
   }
   /**
-   * 处理窗口
-   * @param bounds 
+   * 处理窗口位置/尺寸变化（子类可重写，例如持久化窗口 bounds）。
+   * @param bounds 变化后的窗口边界
    */
   onWindowBoundsChanged(bounds) {
   }
   /**
-   * 配置窗口
-   * @param options 
+   * 配置窗口参数（子类重写以设定具体窗口的尺寸/标题/无边框/置顶等）。
+   * @param options 待修改的窗口构造参数
    */
   configWindow(options) {
   }
   /**
-   * 窗口显示时回调
+   * 窗口显示时回调（默认在开发环境自动打开开发者工具）。
    */
   onWindowShown() {
     if (!import_electron3.app.isPackaged) {
@@ -522,22 +673,32 @@ var AppWindow = class _AppWindow {
     }
   }
   /**
-   * 窗口关闭时回调
+   * 窗口关闭时回调（默认上报「窗口关闭」埋点统计）。
+   * @param win 被关闭的 BrowserWindow
    */
   onWindowClosed(win) {
     statistic_default.poke("WindowClose", { name: this.winName });
   }
+  ///窗口失去焦点回调（子类可重写，例如贴边隐藏逻辑）
   onWindowBlur() {
   }
 };
 
 // src/main/pages/AddStockWindow.ts
 var AddStockWindow = class extends AppWindow {
+  /**
+   * 配置窗口外观：宽 680、高 371 的无边框弹窗（尺寸为魔法数字，用于适配弹窗内容布局）。
+   * @param options 待修改的窗口构造参数
+   */
   configWindow(options) {
     options.width = 680;
     options.height = 371;
     options.frame = false;
   }
+  /**
+   * 窗口创建成功回调：加载 "/addstock" 路由渲染添加股票页面。
+   * @param win 创建完成的 BrowserWindow
+   */
   onWindowCreated(win) {
     win.loadWithRoute("/addstock");
   }
@@ -556,6 +717,8 @@ var service_default = {
    * 1:添加成功
    * 2:需要买会员 
    */
+  // 添加自选股：离线版无登录态，此处只按 "VIP 或自选股不足 1 只" 判断是否放行。
+  // 返回码见上方 JSDoc——1 添加成功、2 需要买会员、3 添加失败（如重复添加）。
   async addStock(ipcEvent, data) {
     let sugs = await this.listUserSug();
     if (local_store_default.isVip || sugs.length < 1) {
@@ -574,10 +737,12 @@ var service_default = {
    * @param data 
    * @returns 
    */
+  // 移除自选股：按 key 从本地配置中删除，恒返回 true（删除结果由 removeStock 内部处理）
   async removeStock(ipcEvent, data) {
     local_store_default.removeStock(data);
     return true;
   },
+  // 置顶自选股：把指定股票排到自选列表最前，无返回值
   async setTopStock(ipcEvent, data) {
     local_store_default.setTopStock(data);
   },
@@ -604,18 +769,23 @@ var service_default = {
   /**
    * 获取用户添加的所有Sug
    */
+  // 获取用户全部自选股：直接返回 local_store 中持久化的 keys 数组（Sug 数组）
   async listUserSug() {
     return local_store_default.config.keys;
   },
+  // 查询单只股票的最新行情：直接转发给行情服务 StockUpdateService
   getStock(key) {
     return stock_default.getStockData(key);
   },
+  // 订阅行情事件：把渲染层传入的回调注册到行情服务，行情更新时触发
   onEvent(eventKey, listener) {
     stock_default.onEvent(eventKey, listener);
   },
+  // 取消订阅行情事件（须传入与订阅时相同的回调引用才能移除）
   removeEvent(eventKey, listener) {
     stock_default.removeEvent(eventKey, listener);
   },
+  // 强制立即刷新所有行情：转发给行情服务的 forceUpdate（直连腾讯/新浪接口主动拉取）
   forStockUpdate() {
     stock_default.forceUpdate();
   }
@@ -806,6 +976,19 @@ function parseMk(key, data, type) {
   return mk;
 }
 var StockApi_default = {
+  /**
+   * 批量拉取腾讯实时行情（核心接口）。
+   *
+   * 流程：
+   *   1. 过滤掉「新浪专属」品种（extra 以 "sina_" 开头且不是 sina_bj，它们走 getSinaStocks）
+   *   2. 按市场拼接 URL：美股取 code 的 `.` 前段并大写（usAAPL）、港股加 "r_" 前缀、
+   *      其余直接 marketCode+code，逗号连接多只股票
+   *   3. `_=` 时间戳防止接口缓存
+   *   4. 数组缓冲接收 + iconv GBK 解码，按 `;` 拆行逐行 parseLine
+   *   5. 返回以 key 为索引的 stockData 映射（key 用 sug.key 覆盖，保证与本地 self 选股一致）
+   *
+   * proxy 参数历史上用于是否走代理，但当前实现未使用，恒传 false。
+   */
   async getStocks(sugs, proxy) {
     let oldSugs = sugs;
     sugs = [];
@@ -874,6 +1057,10 @@ var StockApi_default = {
       return null;
     }
   },
+  /**
+   * 腾讯「搜索联想」接口：输入关键字返回匹配的股票/基金候选（添加股票用）。
+   * 返回的 name 是 unicode 转义（\uXXXX），需要解码成真实中文。
+   */
   async getSugs(key) {
     var p = { "v": 2, "q": key, "t": "all" };
     let res = await import_axios.default.get("https://smartbox.gtimg.cn/s3/", {
@@ -917,6 +1104,11 @@ var StockApi_default = {
     }
     return sugs;
   },
+  /**
+   * 新浪「搜索联想」接口：补充腾讯不覆盖的品种（期货/股指期货/外汇/转债/三板）。
+   * 返回也是分号分隔文本，但每行用逗号分隔，且字段位置与腾讯完全不同，
+   * 需要按 tks[1]（新浪内部类型码）映射回我们的 marketCode。
+   */
   async getSinaSugs(key) {
     let now = (/* @__PURE__ */ new Date()).getTime();
     var p = { "type": "81,85,86,88,71,11", "key": key, "name": "suggestdata_" + now };
@@ -970,6 +1162,11 @@ var StockApi_default = {
     }
     return sugs;
   },
+  /**
+   * 批量拉取新浪行情（期货/股指期货/外汇/转债等新浪专属品种）。
+   * hq.sinajs.cn 需要在 Referer 带 finance.sina.com.cn 才返回数据，
+   * 并且 URL 用原名（hq_str_nf_XXX 等）拼接；返回每行是 "var hq_str_XXX=..."。
+   */
   async getSinaStocks(sugs) {
     let now = (/* @__PURE__ */ new Date()).getTime();
     var url = "https://hq.sinajs.cn/etag.php?_=" + now + "&list=";
@@ -1030,6 +1227,9 @@ var StockApi_default = {
       return null;
     }
   },
+  /**
+   * 拉取某支股票的分时数据，并补充显示名称（优先别名 alias，其次配置里的 name）。
+   */
   async getFenShiData(key) {
     let url = "https://web.ifzq.gtimg.cn/appstock/app/minute/query?_var=min_data_" + key + "&code=" + key + "&r=" + Math.random();
     console.log(url);
@@ -1053,6 +1253,9 @@ var StockApi_default = {
     }
     return fenshi;
   },
+  /**
+   * 拉取某支股票的日K（前复权，最多 180 根）。
+   */
   async getDaykData(key) {
     let url = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/newfqkline/get?_var=kline_dayqfq&param=" + key + ",day,,,180,qfq&r=" + Math.random();
     console.log(url);
@@ -1064,6 +1267,9 @@ var StockApi_default = {
     });
     return parseDayk(key, res.data);
   },
+  /**
+   * 拉取某支股票的分钟K（type 如 m5/m15/m30/m60），最多 180 根。
+   */
   async getMkData(key, type) {
     let url = "https://ifzq.gtimg.cn/appstock/app/kline/mkline?param=" + key + "," + type + ",,180&_var=" + type + "_today&r=" + Math.random();
     console.log(url);
@@ -1075,6 +1281,10 @@ var StockApi_default = {
     });
     return parseMk(key, res.data, type);
   },
+  /**
+   * 应用 HTTP(S) 代理：不带用户名密码时用裸 host:port，否则用 user:pass@host:port。
+   * 代理是否启用由 SetUpProxy（index.ts）根据配置 proxySwitch 决定。
+   */
   setProxy(host, port, un, pass) {
     if (un == null || un == void 0) {
       let agent = new HttpsProxyAgent("http://" + host + ":" + port);
@@ -1086,6 +1296,9 @@ var StockApi_default = {
       import_axios.default.defaults.httpsAgent = agent;
     }
   },
+  /**
+   * 清空代理，恢复默认直连（仍是关闭证书校验的 https.Agent）。
+   */
   cleanProxy() {
     import_axios.default.defaults.httpsAgent = new import_https.default.Agent({
       rejectUnauthorized: false
@@ -1350,10 +1563,20 @@ var HIDE_TYPE_LEFT_SHOW = 4;
 var IndexWindow = class extends AppWindow {
   constructor() {
     super(...arguments);
+    ///是否开启贴边隐藏开关（true 表示允许贴边隐藏）
     this.hideSwitch = true;
+    ///当前贴边隐藏状态，取值见上方 HIDE_TYPE_* 常量
     this.hideType = HIDE_TYPE_NOHIDE;
+    ///配置变更监听器（保存引用以便关闭时移除监听）
     this.configListener = null;
   }
+  /**
+   * 配置主面板窗口外观。
+   * why：
+   *   - 无边框(frame=false) + 透明/无阴影 + 不显示任务栏(skipTaskbar=true) = 悬浮看盘面板；
+   *   - alwaysOnTop=true 使面板始终置顶于其他窗口之上，便于盯盘。
+   * @param options 待修改的窗口构造参数
+   */
   configWindow(options) {
     options.alwaysOnTop = true;
     options.center = false;
@@ -1383,6 +1606,15 @@ var IndexWindow = class extends AppWindow {
       options.height = bounds.height;
     }
   }
+  /**
+   * 窗口创建成功回调。
+   * why：
+   *   - attachWebContents 将渲染进程绑定到股票服务，使其能接收行情推送/图表数据；
+   *   - 监听 appConfig 的 onConfig 事件，把配置变更转发到渲染层；
+   *   - 创建时把 cfg.bounds 置 null，让下次启动重新计算默认位置（避免脏数据）；
+   *   - win32 平台强制设置置顶层级为 normal；
+   *   - 设置窗口不透明度为配置的 alpha 值，再加载 "/" 路由渲染主面板。
+   */
   onWindowCreated(win) {
     stock_default.attachWebContents(win.webContents);
     var that = this;
@@ -1399,18 +1631,33 @@ var IndexWindow = class extends AppWindow {
     win.setOpacity(local_store_default.alpha);
     win.loadWithRoute("/");
   }
+  /**
+   * 窗口关闭回调：解绑渲染进程与股票服务，并移除配置变更监听，避免内存泄漏。
+   */
   onWindowClosed(win) {
     stock_default.detachWebContents(win.webContents);
     if (this.configListener) {
       local_store_default.removeListener("onConfig", this.configListener);
     }
   }
+  /**
+   * 窗口位置/尺寸变化回调（当前暂不持久化 bounds，保留扩展位）。
+   */
   onWindowBoundsChanged(bounds) {
     if (bounds) {
     }
   }
+  /**
+   * 窗口失去焦点回调（贴边隐藏逻辑当前被注释，保留扩展位）。
+   */
   onWindowBlur() {
   }
+  /**
+   * 配置变更处理：更新窗口不透明度，并把新配置及变更的 key 数组转发给渲染层。
+   * 若 hideSwitch（贴边隐藏开关）发生变化且被关闭，则先把窗口唤出到正常位置。
+   * @param config 变更后的配置对象
+   * @param diffKeys 发生变更的配置 key 数组
+   */
   handleConfigChanged(config, diffKeys) {
     this.win?.setOpacity(local_store_default.alpha);
     this.win?.webContents?.send("app-config", config, diffKeys);
@@ -1421,9 +1668,18 @@ var IndexWindow = class extends AppWindow {
       this.hideSwitch = config.hideSwitch;
     }
   }
+  /**
+   * 获取当前窗口 bounds。
+   * @returns 窗口边界（未创建时为 undefined）
+   */
   getBounds() {
     return this.win?.getBounds();
   }
+  /**
+   * 贴边隐藏：若窗口右边缘贴到屏幕右边缘，则几乎整个窗口移出屏幕（仅留 showSize 像素露出）；
+   * 左边缘同理。执行后把 hideType 置为对应隐藏状态，并通知股票服务主面板不可见。
+   * why：仅在 hideSwitch 开启时生效，且需要能匹配到所在显示器，否则返回。
+   */
   hideIfOnScreenBorder() {
     if (this.hideSwitch == false) {
       return;
@@ -1449,6 +1705,10 @@ var IndexWindow = class extends AppWindow {
       stock_default.setIndexWindowVisible(false);
     }
   }
+  /**
+   * 从贴边状态唤出显示：根据当前 hideType（右/左贴边）把窗口移回屏幕内正常位置，
+   * 更新 hideType 为 *_SHOW 状态，通知股票服务主面板可见并强制刷新行情。
+   */
   showIfOnScreenBorder() {
     if (this.hideSwitch == false) {
       return;
@@ -1475,6 +1735,9 @@ var IndexWindow = class extends AppWindow {
       stock_default.forceUpdate();
     }
   }
+  /**
+   * 将主面板移动到主显示器居中位置。
+   */
   setToCenter() {
     let bounds = this.win?.getBounds();
     let sb = import_electron6.screen.getPrimaryDisplay().bounds;
@@ -1484,10 +1747,16 @@ var IndexWindow = class extends AppWindow {
     cy = Math.floor(cy);
     this.setPosition(cx, cy);
   }
+  /**
+   * 显示窗口（重写基类，额外通知股票服务主面板可见）。
+   */
   showOnScreen() {
     super.showOnScreen();
     stock_default.setIndexWindowVisible(true);
   }
+  /**
+   * 隐藏窗口（重写基类，额外通知股票服务主面板不可见）。
+   */
   hideFromScreen() {
     super.hideFromScreen();
     stock_default.setIndexWindowVisible(false);
@@ -1504,10 +1773,13 @@ var import_https2 = __toESM(require("https"));
 var FormData = require("form-data");
 var HttpsProxyAgent2 = require("https-proxy-agent");
 var apiClient = import_axios2.default.create({
-  baseURL: "https://gs.codeffect.top",
+  baseURL: "https://www.baidu.com",
+  // 云端服务地址
   timeout: 3e3,
+  // 超时 3 秒
   httpsAgent: new import_https2.default.Agent({
     rejectUnauthorized: false
+    // 忽略证书校验（原为兼容自签名/代理环境）
   })
 });
 var getPublicConfig = () => {
@@ -1539,50 +1811,65 @@ apiClient.interceptors.request.use(function(config) {
 });
 var codffect_default = {
   /** 微信登录：离线版禁用 */
+  // 固定 reject('login-disabled')，向调用方表明登录功能已被禁用
   async loginWithWechat(code) {
     return Promise.reject("login-disabled");
   },
+  /** 统计埋点上报：离线版空实现，恒返回 null，不真正上报 */
   async statisticPoke(common, postBody) {
     return null;
   },
+  /** 日志/文件（zip）上传：离线版空实现，恒返回 null */
   async uploadFile(zipFilePath) {
     return null;
   },
+  /** 用户反馈/建议上传：离线版空实现，恒返回 null */
   async sendAdvice(content) {
     return null;
   },
+  /** 异常上报：仅打印本地日志，不真正上报，恒返回 null */
   async sendException(content) {
     console.log("sendException:" + content);
     return null;
   },
+  /** 拉取云端配置：离线版空实现，恒返回 null */
   async getConfig(version) {
     return null;
   },
+  /** 云端数据同步：离线版空实现，恒返回 null */
   async syncData(operation) {
     return null;
   },
+  /** 获取商品（会员套餐）信息：离线版返回空数组，表示无可购买项 */
   async getGoodsInfo() {
     return [];
   },
+  /** 获取支付链接：离线版空实现，恒返回 null */
   async getPayURL(goodID) {
     return null;
   },
+  /** 查询支付状态：离线版空实现，恒返回 null */
   async getPayStatus(orderID) {
     return null;
   },
+  /** 获取用户信息：离线版空实现，恒返回 null */
   async getUserInfo() {
     return null;
   },
   /** 网络连通性检测：离线版不做外部探测 */
+  // 恒返回 false，不发起真实的联网探测
   async checkBaidu() {
     return false;
   },
+  /** 填写邀请码：离线版空实现，恒返回 null */
   async fillInviteCode(Code) {
     return null;
   },
+  /** 获取会员详情：离线版空实现，恒返回 null */
   async getVipDetail() {
     return null;
   },
+  /** 代理连通性测试：离线版空实现，恒返回 null */
   async testProxy(host, port) {
     return null;
   }
@@ -1630,7 +1917,7 @@ var LoginWindow = class extends AppWindow {
       return false;
     });
   }
-  ///窗口关闭
+  ///窗口关闭：移除 "login" ipc 处理器，避免残留/重复注册
   onWindowClosed() {
     import_electron8.ipcMain.removeHandler("login");
   }
@@ -1640,17 +1927,32 @@ var LoginWindow = class extends AppWindow {
 var SettingWindow = class extends AppWindow {
   constructor() {
     super(...arguments);
+    ///当前渲染路由（默认 /setting，可带子路由）
     this.route = "/setting";
+    ///配置变更监听器（保存引用，便于管理）
     this.configListener = null;
   }
+  /**
+   * 配置窗口外观：固定宽 700、高 600，标题「设置」。
+   * @param options 待修改的窗口构造参数
+   */
   configWindow(options) {
     options.width = 700;
     options.height = 600;
     options.title = "\u8BBE\u7F6E";
   }
+  /**
+   * 设置窗口渲染路由（用于切换到具体设置子页面）。
+   * @param route 目标路由，如 "/setting" 或带子路由的 "/setting/xxx"
+   */
   setRoute(route) {
     this.route = route;
   }
+  /**
+   * 窗口创建成功回调：加载当前路由；注册配置变更监听器，
+   * 将 appConfig 的 onConfig 事件转发到 handleConfigChanged。
+   * @param win 创建完成的 BrowserWindow
+   */
   onWindowCreated(win) {
     win.loadWithRoute(this.route);
     var that = this;
@@ -1659,6 +1961,12 @@ var SettingWindow = class extends AppWindow {
     };
     local_store_default.on("onConfig", this.configListener);
   }
+  /**
+   * 配置变更处理：将最新配置及变更 key 通过 ipc "app-config" 推送给渲染层，
+   * 使设置页面实时同步最新配置状态。
+   * @param config 变更后的配置对象
+   * @param diffKeys 发生变更的配置 key 数组
+   */
   handleConfigChanged(config, diffKeys) {
     this.win?.webContents?.send("app-config", config, diffKeys);
   }
@@ -1666,11 +1974,19 @@ var SettingWindow = class extends AppWindow {
 
 // src/main/pages/VipWindow.ts
 var VipWindow = class extends AppWindow {
+  /**
+   * 配置窗口外观：固定宽 700、高 700，标题「会员」。
+   * @param options 待修改的窗口构造参数
+   */
   configWindow(options) {
     options.width = 700;
     options.height = 700;
     options.title = "\u4F1A\u5458";
   }
+  /**
+   * 窗口创建成功回调：加载 "/vip" 路由渲染会员页面。
+   * @param win 创建完成的 BrowserWindow
+   */
   onWindowCreated(win) {
     win.loadWithRoute("/vip");
   }
@@ -1680,14 +1996,24 @@ var VipWindow = class extends AppWindow {
 var SetCostWindow = class extends AppWindow {
   constructor() {
     super(...arguments);
+    ///目标股票代码
     this.stockKey = null;
   }
+  /**
+   * 配置窗口外观：固定宽 380、高 460，标题「更多」；位置不强制居中（由系统/上次位置决定）。
+   * @param options 待修改的窗口构造参数
+   */
   configWindow(options) {
     options.width = 380;
     options.center = false;
     options.height = 460;
     options.title = "\u66F4\u591A";
   }
+  /**
+   * 窗口创建成功回调：校验股票代码是否存在，缺失则记录日志并放弃加载，
+   * 否则加载 "/cost?key=<stockKey>" 路由渲染成本价设置页面。
+   * @param win 创建完成的 BrowserWindow
+   */
   onWindowCreated(win) {
     if (!this.stockKey) {
       logger_default.log("key missing.");
@@ -1695,9 +2021,17 @@ var SetCostWindow = class extends AppWindow {
     }
     win.loadWithRoute("/cost?key=" + this.stockKey);
   }
+  /**
+   * 设置目标股票代码（窗口复用前更新股票）。
+   * @param key 股票代码
+   */
   setStock(key) {
     this.stockKey = key;
   }
+  /**
+   * 复用已有窗口刷新：通过 ipc "reload" 通道把新的 stockKey 推送给渲染层。
+   * why：避免重复创建窗口，复用单例窗口更新展示的股票。
+   */
   reload() {
     console.log("reload:" + this.stockKey);
     this.win?.webContents.send("reload", this.stockKey);
@@ -1753,11 +2087,19 @@ var import_electron_dl = __toESM(require("electron-dl"));
 
 // src/main/pages/InviteWindow.ts
 var InviteWindow = class extends AppWindow {
+  /**
+   * 配置窗口外观：固定宽 331、高 404，无标题。
+   * @param options 待修改的窗口构造参数
+   */
   configWindow(options) {
     options.width = 331;
     options.height = 404;
     options.title = "";
   }
+  /**
+   * 窗口创建成功回调：加载 "/invite" 路由渲染邀请页面。
+   * @param win 创建完成的 BrowserWindow
+   */
   onWindowCreated(win) {
     win.loadWithRoute("/invite");
   }
@@ -1767,8 +2109,14 @@ var InviteWindow = class extends AppWindow {
 var ChartWindow = class extends AppWindow {
   constructor() {
     super(...arguments);
+    ///当前图表窗口展示的股票标识（股票代码；或对象形式便于携带多个查询参数）
     this.stockKey = null;
   }
+  /**
+   * 配置窗口外观：宽 400、高 285 的无边框窗口，标题「分时」。
+   * 不透明度取配置的 alpha；若存在历史 chartBounds 则恢复窗口位置（宽高沿用默认，不恢复）。
+   * @param options 待修改的窗口构造参数
+   */
   configWindow(options) {
     options.width = 400;
     options.height = 285;
@@ -1782,6 +2130,12 @@ var ChartWindow = class extends AppWindow {
       options.y = bounds.y;
     }
   }
+  /**
+   * 窗口创建成功回调：根据 stockKey 的类型拼接路由查询串并加载。
+   *   - 对象类型：把每个键值对拼成 `${k}=${v}` 再以 & 连接（支持多参数，如 key/code/period 等）；
+   *   - 其他类型：直接按 `key=<stockKey>` 加载。
+   * @param win 创建完成的 BrowserWindow
+   */
   onWindowCreated(win) {
     if (typeof this.stockKey === "object") {
       let query = Object.keys(this.stockKey).map(((item) => {
@@ -1792,9 +2146,17 @@ var ChartWindow = class extends AppWindow {
       win.loadWithRoute("/chart?key=" + this.stockKey);
     }
   }
+  /**
+   * 设置图表窗口展示的股票标识（用于窗口复用前更新目标股票）。
+   * @param key 股票代码，或携带多个查询参数的对象
+   */
   setStock(key) {
     this.stockKey = key;
   }
+  /**
+   * 复用已有窗口刷新：通过 ipc "reload" 通道把新的 stockKey 推送给渲染层，触发图表重载。
+   * why：避免重复创建窗口，复用单例窗口仅更新内部数据。
+   */
   reload() {
     console.log("reload:" + this.stockKey);
     this.win?.webContents.send("reload", this.stockKey);
@@ -1803,11 +2165,19 @@ var ChartWindow = class extends AppWindow {
 
 // src/main/pages/AdviceWindow.ts
 var AdviceWindow = class extends AppWindow {
+  /**
+   * 配置窗口外观：固定宽 380、高 420，窗口标题「股票监控」。
+   * @param options 待修改的窗口构造参数
+   */
   configWindow(options) {
     options.width = 380;
     options.height = 420;
-    options.title = "\u5E7D\u7075\u770B\u76D8";
+    options.title = "\u80A1\u7968\u76D1\u63A7";
   }
+  /**
+   * 窗口创建成功回调：加载 "/advice" 路由渲染反馈页面。
+   * @param win 创建完成的 BrowserWindow
+   */
   onWindowCreated(win) {
     win.loadWithRoute("/advice");
   }
